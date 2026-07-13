@@ -38,9 +38,7 @@ final class AuthorizationServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Capability registration will be added here.
-        // Policy registration will be added here.
-        // WordPress integration will be added here.
+        error_log('[BizHub] Authorization Provider Booted');
     }
 
     /**
