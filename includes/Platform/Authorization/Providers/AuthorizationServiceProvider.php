@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BizHub\Platform\Authorization\Providers;
 
+use BizHub\Framework\Providers\ServiceProvider;
 use BizHub\Platform\Authorization\Services\AuthorizationService;
 use BizHub\Platform\Authorization\Services\CapabilityRegistry;
 use BizHub\Platform\Authorization\Services\PolicyResolver;
@@ -13,7 +14,7 @@ use BizHub\Platform\Authorization\Services\PolicyResolver;
  *
  * @package BizHub\Platform\Authorization\Providers
  */
-final class AuthorizationServiceProvider
+final class AuthorizationServiceProvider extends ServiceProvider
 {
     private CapabilityRegistry $capabilityRegistry;
 
@@ -37,7 +38,9 @@ final class AuthorizationServiceProvider
      */
     public function boot(): void
     {
-        error_log('[BizHub] Authorization Provider Booted');
+        // Capability registration will be added here.
+        // Policy registration will be added here.
+        // WordPress integration will be added here.
     }
 
     /**

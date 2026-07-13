@@ -4,24 +4,43 @@ declare(strict_types=1);
 
 namespace BizHub\Framework\Bootstrap;
 
+use BizHub\Framework\Container\ContainerFactory;
+use BizHub\Framework\Providers\ServiceProvider;
 use BizHub\Platform\Authorization\Providers\AuthorizationServiceProvider;
+use DI\Container;
 
 /**
  * Main BizHub Application.
  *
- * Responsible for bootstrapping the Framework
- * and Platform services.
+ * Responsible for bootstrapping the BizHub Framework,
+ * initializing the dependency injection container,
+ * registering service providers, and booting the platform.
  *
  * @package BizHub\Framework\Bootstrap
  */
 final class Application
 {
     /**
+     * Dependency Injection Container.
+     *
+     * @var Container
+     */
+    private Container $container;
+
+    /**
      * Registered service providers.
      *
-     * @var array<int,object>
+     * @var array<int, ServiceProvider>
      */
     private array $providers = [];
+
+    /**
+     * Application constructor.
+     */
+    public function __construct()
+    {
+        $this->container = ContainerFactory::create();
+    }
 
     /**
      * Boot the application.
@@ -32,10 +51,20 @@ final class Application
     {
         $this->registerProviders();
 
+        /*
+         * First pass:
+         * Register all providers.
+         */
         foreach ($this->providers as $provider) {
-            if (method_exists($provider, 'boot')) {
-                $provider->boot();
-            }
+            $provider->register();
+        }
+
+        /*
+         * Second pass:
+         * Boot all providers.
+         */
+        foreach ($this->providers as $provider) {
+            $provider->boot();
         }
     }
 
@@ -46,6 +75,18 @@ final class Application
      */
     private function registerProviders(): void
     {
-        $this->providers[] = new AuthorizationServiceProvider();
+        $this->providers[] = $this->container->get(
+            AuthorizationServiceProvider::class
+        );
+    }
+
+    /**
+     * Return the Dependency Injection Container.
+     *
+     * @return Container
+     */
+    public function container(): Container
+    {
+        return $this->container;
     }
 }
