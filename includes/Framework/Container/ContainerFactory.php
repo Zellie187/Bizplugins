@@ -16,21 +16,25 @@ final class ContainerFactory
 {
     /**
      * Create and configure the DI container.
-     *
-     * @return Container
      */
     public static function create(): Container
     {
         $builder = new ContainerBuilder();
 
         /*
-         * Future configuration:
+         * Future production configuration:
          *
          * - Enable compilation
          * - Enable definition caching
-         * - Register definitions
          * - Environment-specific configuration
          */
+        // if (! defined('WP_DEBUG') || WP_DEBUG === false) {
+        //     $builder->enableCompilation(BIZHUB_PLUGIN_PATH . 'cache/container');
+        // }
+
+        $builder->addDefinitions(
+            __DIR__ . '/definitions.php'
+        );
 
         return $builder->build();
     }

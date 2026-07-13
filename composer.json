@@ -1,11 +1,11 @@
 {
-    "name": "bizhub/core-plugin",
-    "description": "BizHub Core WordPress Plugin",
+    "name": "bizupkeep/bizhub-plugin",
+    "description": "BizHub Business Management Platform for WordPress",
     "type": "wordpress-plugin",
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "php-di/php-di": "*"
+        "php-di/php-di": "^7.1"
     },
     "autoload": {
         "psr-4": {

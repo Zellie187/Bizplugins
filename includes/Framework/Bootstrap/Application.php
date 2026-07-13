@@ -5,41 +5,44 @@ declare(strict_types=1);
 namespace BizHub\Framework\Bootstrap;
 
 use BizHub\Framework\Container\ContainerFactory;
-use BizHub\Framework\Providers\ServiceProvider;
+use BizHub\Framework\Providers\ProviderRepository;
 use BizHub\Platform\Authorization\Providers\AuthorizationServiceProvider;
 use DI\Container;
 
 /**
- * Main BizHub Application.
+ * BizHub
  *
- * Responsible for bootstrapping the BizHub Framework,
- * initializing the dependency injection container,
- * registering service providers, and booting the platform.
+ * Enterprise Business Management Platform
  *
- * @package BizHub\Framework\Bootstrap
+ * Main application bootstrap responsible for creating the
+ * Dependency Injection container and managing the provider lifecycle.
+ *
+ * @package BizHub
+ * @subpackage Framework\Bootstrap
+ * @since 0.2.0
  */
 final class Application
 {
     /**
      * Dependency Injection Container.
-     *
-     * @var Container
      */
     private Container $container;
 
     /**
-     * Registered service providers.
-     *
-     * @var array<int, ServiceProvider>
+     * Provider Repository.
      */
-    private array $providers = [];
+    private ProviderRepository $providerRepository;
 
     /**
-     * Application constructor.
+     * Constructor.
      */
     public function __construct()
     {
         $this->container = ContainerFactory::create();
+
+        $this->providerRepository = new ProviderRepository(
+            $this->container
+        );
     }
 
     /**
@@ -53,31 +56,31 @@ final class Application
 
         /*
          * First pass:
-         * Register all providers.
+         * Register every provider.
          */
-        foreach ($this->providers as $provider) {
-            $provider->register();
-        }
+        $this->providerRepository->register();
 
         /*
          * Second pass:
-         * Boot all providers.
+         * Boot every provider.
          */
-        foreach ($this->providers as $provider) {
-            $provider->boot();
-        }
+        $this->providerRepository->boot();
     }
 
     /**
-     * Register Framework service providers.
+     * Register Framework and Platform Providers.
      *
      * @return void
      */
     private function registerProviders(): void
     {
-        $this->providers[] = $this->container->get(
-            AuthorizationServiceProvider::class
-        );
+        $providers = [
+            AuthorizationServiceProvider::class,
+        ];
+
+        foreach ($providers as $provider) {
+            $this->providerRepository->add($provider);
+        }
     }
 
     /**
