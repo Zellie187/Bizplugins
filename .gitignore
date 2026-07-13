@@ -1,8 +1,61 @@
-/vendor/
-/node_modules/
-/composer.lock
-/.phpunit.result.cache
-/.idea/
-/.vscode/
+# macOS
 .DS_Store
+
+# Windows
 Thumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vscode/
+
+# Composer
+/vendor/
+/composer.lock
+
+# Node
+/node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# PHPUnit
+.phpunit.result.cache
+
+# Coverage
+coverage/
+.clover.xml
+
+# Build
+dist/
+build/
+
+# WordPress
+wp-config.php
+wp-content/cache/
+wp-content/uploads/
+wp-content/upgrade/
+
+# OS Temporary Files
+*.tmp
+*.temp
+
+# Archive Files
+*.zip
+*.tar
+*.gz
+
+# Generated Documentation
+docs/generated/
+
+# Local Configuration
+local.php
+config/local.php

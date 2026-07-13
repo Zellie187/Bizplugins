@@ -1,7 +1,23 @@
-* text=auto
+* text=auto eol=lf
 
-*.php text
-*.js text
-*.css text
-*.json text
-*.md text
+*.php      text
+*.js       text
+*.css      text
+*.json     text
+*.xml      text
+*.md       text
+*.yml      text
+*.yaml     text
+
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.svg      text
+*.ico      binary
+*.woff     binary
+*.woff2    binary
+*.ttf      binary
+*.eot      binary
+*.pdf      binary
+*.zip      binary

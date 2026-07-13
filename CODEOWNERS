@@ -1,0 +1,16 @@
+# BizHub Platform Code Owners
+
+# Default owner
+* @Zellie187
+
+# Documentation
+/docs/ @Zellie187
+
+# Plugins
+/plugins/ @Zellie187
+
+# Themes
+/themes/ @Zellie187
+
+# GitHub Workflows
+/.github/ @Zellie187
