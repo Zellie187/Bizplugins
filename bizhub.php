@@ -1,42 +1,38 @@
-<<<<<<< HEAD
-## [0.1.0] - Sprint 001 - Milestone 1
+<?php
+/**
+ * Plugin Name: BizHub
+ * Plugin URI: https://bizupkeep.co.za
+ * Description: Enterprise Business Management Platform.
+ * Version: 0.2.0
+ * Author: BizUpKeep
+ * Author URI: https://bizupkeep.co.za
+ * Requires at least: 6.7
+ * Requires PHP: 8.2
+ * Text Domain: bizhub
+ * Domain Path: /languages
+ */
 
-### Added
+declare(strict_types=1);
 
-- WordPress plugin bootstrap (`bizhub.php`)
-- Framework bootstrap process
-- Framework constants registration
-- Application singleton
-- Framework kernel
-- Base framework exception
-- Environment validation
-- Initial framework boot lifecycle
+if (! defined('ABSPATH')) {
+    exit;
+}
 
-### Technical
+define('BIZHUB_PLUGIN_FILE', __FILE__);
+define('BIZHUB_PLUGIN_PATH', plugin_dir_path(__FILE__));
+define('BIZHUB_PLUGIN_URL', plugin_dir_url(__FILE__));
 
-- PHP 8.2+ support
-- WordPress 6.8+ compatibility
-- PSR-4 autoloading
-- Strict typing enabled
-=======
-## [0.1.0] - Sprint 001 - Milestone 1
+require_once BIZHUB_PLUGIN_PATH . 'vendor/autoload.php';
 
-### Added
+use BizHub\Framework\Bootstrap\Application;
 
-- WordPress plugin bootstrap (`bizhub.php`)
-- Framework bootstrap process
-- Framework constants registration
-- Application singleton
-- Framework kernel
-- Base framework exception
-- Environment validation
-- Initial framework boot lifecycle
+add_action(
+    'plugins_loaded',
+    static function (): void {
 
-### Technical
+        $application = new Application();
 
-- PHP 8.2+ support
-- WordPress 6.8+ compatibility
-- PSR-4 autoloading
-- Strict typing enabled
->>>>>>> 6204cdf232a09d680be002c5c5b2c3185a4fbe00
-- Initial framework lifecycle established
+        $application->boot();
+
+    }
+);
