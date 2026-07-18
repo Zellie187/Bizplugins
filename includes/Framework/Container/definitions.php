@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use BizHub\Platform\Authorization\Services\AuthorizationService;
-use BizHub\Platform\Authorization\Services\CapabilityRegistry;
-use BizHub\Platform\Authorization\Services\PolicyResolver;
+use BizHub\Security\Authorization\Registries\CapabilityRegistry;
+use BizHub\Security\Authorization\Services\AuthorizationService;
+use BizHub\Security\Authorization\Services\PolicyResolver;
 
 return [
 

@@ -1,13 +1,34 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
 parameters:
 
     level: 6
 
     paths:
-        - plugins
+        - includes
 
     tmpDir: .phpstan
 
-    scanDirectories:
-        - plugins
-
     inferPrivatePropertyTypeFromConstructor: true
+
+    bootstrapFiles:
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+
+    scanFiles:
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+
+    ignoreErrors:
+        # BIZHUB_* path constants are define()'d at runtime by bizhub.php
+        # (BIZHUB_PLUGIN_PATH) and Constants::register() (everything else);
+        # no stub package can know about them ahead of time.
+        - '#^Constant BIZHUB_[A-Z_]+ not found\.$#'
+        # Forminator has no public PHPStan stub package (unlike WordPress
+        # and WooCommerce), so its runtime classes are unknown to PHPStan.
+        - '#Forminator_Form_Entry_Model#'
+        # See the docblock on Collection::filter(): TValue can't be made
+        # covariant without breaking ArrayAccess::offsetSet(), so PHPStan
+        # can't verify array_filter()'s result precisely.
+        -
+            message: '#^Method BizHub\\Framework\\Support\\Collection::filter\(\)#'
+            path: includes/Framework/Support/Collection.php

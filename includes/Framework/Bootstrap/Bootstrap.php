@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace BizHub\Framework\Bootstrap;
 
-use BizHub\Framework\Application\Application;
+use BizHub\Framework\Bootstrap\Application;
 use BizHub\Framework\Exceptions\FrameworkException;
 
 /**
@@ -44,9 +44,7 @@ final class Bootstrap
             return;
         }
 
-        Constants::register();
-
-        $application = Application::instance();
+        $application = new Application();
 
         $application->boot();
 

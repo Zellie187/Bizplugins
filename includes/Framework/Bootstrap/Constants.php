@@ -51,6 +51,11 @@ final class Constants
             'BIZHUB_LANGUAGE_PATH',
             BIZHUB_PLUGIN_PATH . 'languages/'
         );
+
+        self::define(
+            'BIZHUB_STORAGE_PATH',
+            BIZHUB_PLUGIN_PATH . 'storage/'
+        );
     }
 
     /**

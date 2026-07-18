@@ -4,9 +4,23 @@ declare(strict_types=1);
 
 namespace BizHub\Framework\Bootstrap;
 
+use BizHub\Admin\Providers\AdminServiceProvider;
+use BizHub\Api\ApiServiceProvider;
+use BizHub\Applications\Providers\ApplicationServiceProvider;
+use BizHub\ClientPortal\Providers\ClientServiceProvider;
+use BizHub\Companies\Providers\CompanyServiceProvider;
+use BizHub\Dashboard\Providers\DashboardServiceProvider;
 use BizHub\Framework\Container\ContainerFactory;
-use BizHub\Framework\Providers\ProviderRepository;
-use BizHub\Platform\Authorization\Providers\AuthorizationServiceProvider;
+use BizHub\Framework\Database\Providers\DatabaseServiceProvider;
+use BizHub\Framework\Events\EventServiceProvider;
+use BizHub\Documents\Providers\DocumentServiceProvider;
+use BizHub\Framework\Registries\ProviderRegistry;
+use BizHub\Integrations\Forminator\ServiceProvider as ForminatorServiceProvider;
+use BizHub\Integrations\WooCommerce\ServiceProvider as WooCommerceServiceProvider;
+use BizHub\Notifications\Providers\NotificationServiceProvider;
+use BizHub\Reporting\Providers\ReportingServiceProvider;
+use BizHub\Security\Auth\Providers\AuthServiceProvider;
+use BizHub\Security\Authorization\Providers\AuthorizationServiceProvider;
 use DI\Container;
 
 /**
@@ -29,18 +43,20 @@ final class Application
     private Container $container;
 
     /**
-     * Provider Repository.
+     * Provider Registry.
      */
-    private ProviderRepository $providerRepository;
+    private ProviderRegistry $providerRegistry;
 
     /**
      * Constructor.
      */
     public function __construct()
     {
+        Constants::register();
+
         $this->container = ContainerFactory::create();
 
-        $this->providerRepository = new ProviderRepository(
+        $this->providerRegistry = new ProviderRegistry(
             $this->container
         );
     }
@@ -58,28 +74,42 @@ final class Application
          * First pass:
          * Register every provider.
          */
-        $this->providerRepository->register();
+        $this->providerRegistry->register();
 
         /*
          * Second pass:
          * Boot every provider.
          */
-        $this->providerRepository->boot();
+        $this->providerRegistry->boot();
     }
 
     /**
-     * Register Framework and Platform Providers.
+     * Register Framework and Security Providers.
      *
      * @return void
      */
     private function registerProviders(): void
     {
         $providers = [
+            DatabaseServiceProvider::class,
+            EventServiceProvider::class,
+            AuthServiceProvider::class,
             AuthorizationServiceProvider::class,
+            CompanyServiceProvider::class,
+            ClientServiceProvider::class,
+            ApplicationServiceProvider::class,
+            DocumentServiceProvider::class,
+            WooCommerceServiceProvider::class,
+            ForminatorServiceProvider::class,
+            DashboardServiceProvider::class,
+            NotificationServiceProvider::class,
+            ApiServiceProvider::class,
+            AdminServiceProvider::class,
+            ReportingServiceProvider::class,
         ];
 
         foreach ($providers as $provider) {
-            $this->providerRepository->add($provider);
+            $this->providerRegistry->add($provider);
         }
     }
 
