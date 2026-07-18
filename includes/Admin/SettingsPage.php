@@ -23,7 +23,9 @@ final class SettingsPage
             return;
         }
 
-        $nonce = isset($_POST['bizhub_settings_nonce']) ? sanitize_text_field(wp_unslash($_POST['bizhub_settings_nonce'])) : '';
+        $nonce = isset($_POST['bizhub_settings_nonce'])
+            ? sanitize_text_field(wp_unslash($_POST['bizhub_settings_nonce']))
+            : '';
 
         if ($nonce !== '' && wp_verify_nonce($nonce, 'bizhub_save_settings')) {
             $this->saveSettings();
@@ -37,13 +39,20 @@ final class SettingsPage
         wp_nonce_field('bizhub_save_settings', 'bizhub_settings_nonce');
         echo '<table class="form-table"><tbody>';
         echo '<tr><th scope="row">' . esc_html__('Support Email', 'bizhub') . '</th><td>';
-        echo '<input type="email" name="support_email" class="regular-text" value="' . esc_attr($settings['support_email'] ?? '') . '">';
+        echo '<input type="email" name="support_email" class="regular-text" value="'
+            . esc_attr($settings['support_email'] ?? '') . '">';
         echo '</td></tr>';
         echo '<tr><th scope="row">' . esc_html__('Uninstall', 'bizhub') . '</th><td>';
-        echo '<label><input type="checkbox" name="delete_data_on_uninstall" value="1"' . checked($deleteDataOnUninstall, true, false) . '> ';
-        echo esc_html__('Delete all BizHub data (companies, applications, documents, etc.) when the plugin is deleted', 'bizhub');
+        echo '<label><input type="checkbox" name="delete_data_on_uninstall" value="1"'
+            . checked($deleteDataOnUninstall, true, false) . '> ';
+        echo esc_html__(
+            'Delete all BizHub data (companies, applications, documents, etc.) when the plugin is deleted',
+            'bizhub'
+        );
         echo '</label>';
-        echo '<p class="description">' . esc_html__('Leave unchecked to keep your data if you reinstall the plugin later.', 'bizhub') . '</p>';
+        echo '<p class="description">'
+            . esc_html__('Leave unchecked to keep your data if you reinstall the plugin later.', 'bizhub')
+            . '</p>';
         echo '</td></tr>';
         echo '</tbody></table>';
         submit_button();
@@ -56,8 +65,10 @@ final class SettingsPage
     private function saveSettings(): void
     {
         // Caller (render()) verifies the nonce before calling this method.
-        $supportEmail = sanitize_email(wp_unslash($_POST['support_email'] ?? '')); // phpcs:ignore WordPress.Security.NonceVerification.Missing
-        $deleteDataOnUninstall = isset($_POST['delete_data_on_uninstall']); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing
+        $supportEmail = sanitize_email(wp_unslash($_POST['support_email'] ?? ''));
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing
+        $deleteDataOnUninstall = isset($_POST['delete_data_on_uninstall']);
 
         update_option(self::OPTION_KEY, [
             'support_email' => $supportEmail,

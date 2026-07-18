@@ -61,7 +61,8 @@ final class WordPressDatabase implements DatabaseInterface
             $clauses = [];
 
             foreach ($orderBy as $column => $direction) {
-                $clauses[] = sprintf('%s %s', $this->quoteIdentifier($column), strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC');
+                $sortDirection = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
+                $clauses[] = sprintf('%s %s', $this->quoteIdentifier($column), $sortDirection);
             }
 
             $sql .= ' ORDER BY ' . implode(', ', $clauses);
@@ -270,7 +271,8 @@ final class WordPressDatabase implements DatabaseInterface
         $bindings = [];
 
         foreach ($criteria as $column => $value) {
-            $clauses[] = sprintf('%s = %s', $this->quoteIdentifier($column), (new QueryParameter($value))->placeholder());
+            $placeholder = (new QueryParameter($value))->placeholder();
+            $clauses[] = sprintf('%s = %s', $this->quoteIdentifier($column), $placeholder);
             $bindings[] = $value;
         }
 

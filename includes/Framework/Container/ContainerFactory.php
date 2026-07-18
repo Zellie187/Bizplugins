@@ -80,7 +80,9 @@ final class ContainerFactory
             }
 
             $isModuleDefinitions = $fileInfo->getFilename() === 'definitions.php';
-            $isContainerFragment = \str_contains($path, DIRECTORY_SEPARATOR . 'Container' . DIRECTORY_SEPARATOR . 'Definitions' . DIRECTORY_SEPARATOR);
+            $containerFragmentPath = DIRECTORY_SEPARATOR . 'Container' . DIRECTORY_SEPARATOR
+                . 'Definitions' . DIRECTORY_SEPARATOR;
+            $isContainerFragment = \str_contains($path, $containerFragmentPath);
 
             if (! $isModuleDefinitions && ! $isContainerFragment) {
                 continue;

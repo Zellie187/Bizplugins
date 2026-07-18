@@ -30,7 +30,12 @@ final class ExportPdf
 
         $html = '<!doctype html><html><head><meta charset="utf-8">';
         $html .= '<title>' . htmlspecialchars($title) . '</title>';
-        $html .= '<style>body{font-family:sans-serif;margin:2em;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;}@media print{body{margin:0;}}</style>';
+        $html .= '<style>'
+            . 'body{font-family:sans-serif;margin:2em;}'
+            . 'table{width:100%;border-collapse:collapse;}'
+            . 'th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;}'
+            . '@media print{body{margin:0;}}'
+            . '</style>';
         $html .= '</head><body>';
         $html .= '<h1>' . htmlspecialchars($title) . '</h1>';
         $html .= '<table><thead><tr>';

@@ -22,12 +22,15 @@ final class SystemStatusPage
             return;
         }
 
+        $yes = __('Yes', 'bizhub');
+        $no = __('No', 'bizhub');
+
         $rows = [
             __('BizHub Version', 'bizhub') => Version::current(),
             __('PHP Version', 'bizhub') => PHP_VERSION,
             __('WordPress Version', 'bizhub') => get_bloginfo('version'),
-            __('WooCommerce Active', 'bizhub') => class_exists('WooCommerce') ? __('Yes', 'bizhub') : __('No', 'bizhub'),
-            __('Forminator Active', 'bizhub') => class_exists('Forminator_API') ? __('Yes', 'bizhub') : __('No', 'bizhub'),
+            __('WooCommerce Active', 'bizhub') => class_exists('WooCommerce') ? $yes : $no,
+            __('Forminator Active', 'bizhub') => class_exists('Forminator_API') ? $yes : $no,
         ];
 
         echo '<div class="wrap"><h1>' . esc_html__('BizHub System Status', 'bizhub') . '</h1>';

@@ -38,7 +38,10 @@ final class PermissionsPage
         )) . '</p>';
 
         echo '<h2>' . esc_html__('Roles', 'bizhub') . '</h2>';
-        echo '<table class="widefat striped"><thead><tr><th>' . esc_html__('Role', 'bizhub') . '</th><th>' . esc_html__('WordPress Capabilities', 'bizhub') . '</th></tr></thead><tbody>';
+        echo '<table class="widefat striped"><thead><tr>';
+        echo '<th>' . esc_html__('Role', 'bizhub') . '</th>';
+        echo '<th>' . esc_html__('WordPress Capabilities', 'bizhub') . '</th>';
+        echo '</tr></thead><tbody>';
 
         foreach (Roles::all() as $roleSlug) {
             $role = get_role($roleSlug);

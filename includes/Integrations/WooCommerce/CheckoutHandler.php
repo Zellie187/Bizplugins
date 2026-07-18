@@ -66,7 +66,8 @@ final class CheckoutHandler
             return;
         }
 
-        $companyName = sanitize_text_field(wp_unslash($_POST[self::COMPANY_NAME_FIELD])); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing
+        $companyName = sanitize_text_field(wp_unslash($_POST[self::COMPANY_NAME_FIELD]));
 
         if ($companyName === '') {
             return;

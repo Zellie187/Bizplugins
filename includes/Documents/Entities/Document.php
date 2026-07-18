@@ -136,7 +136,10 @@ final class Document
     {
         $versions = $this->versions;
 
-        usort($versions, static fn (DocumentVersion $a, DocumentVersion $b): int => $b->versionNumber <=> $a->versionNumber);
+        usort(
+            $versions,
+            static fn (DocumentVersion $a, DocumentVersion $b): int => $b->versionNumber <=> $a->versionNumber
+        );
 
         return $versions;
     }

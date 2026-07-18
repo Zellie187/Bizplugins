@@ -60,7 +60,11 @@ final class DocumentController
         }
 
         if (! $this->security->canView($userId, $document)) {
-            return new WP_Error('bizhub_document_forbidden', 'You do not have access to this document.', ['status' => 403]);
+            return new WP_Error(
+                'bizhub_document_forbidden',
+                'You do not have access to this document.',
+                ['status' => 403]
+            );
         }
 
         return new WP_REST_Response($document->toArray(), 200);
@@ -81,7 +85,11 @@ final class DocumentController
         }
 
         if (! $this->security->canDelete($userId, $document)) {
-            return new WP_Error('bizhub_document_forbidden', 'You do not have access to delete this document.', ['status' => 403]);
+            return new WP_Error(
+                'bizhub_document_forbidden',
+                'You do not have access to delete this document.',
+                ['status' => 403]
+            );
         }
 
         $this->documents->deleteDocument($uuid);

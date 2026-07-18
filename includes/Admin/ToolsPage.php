@@ -31,7 +31,9 @@ final class ToolsPage
 
         $message = null;
 
-        $nonce = isset($_POST['bizhub_tools_nonce']) ? sanitize_text_field(wp_unslash($_POST['bizhub_tools_nonce'])) : '';
+        $nonce = isset($_POST['bizhub_tools_nonce'])
+            ? sanitize_text_field(wp_unslash($_POST['bizhub_tools_nonce']))
+            : '';
 
         if ($nonce !== '' && wp_verify_nonce($nonce, 'bizhub_run_tool')) {
             $tool = isset($_POST['tool']) ? sanitize_text_field(wp_unslash($_POST['tool'])) : '';
@@ -46,8 +48,10 @@ final class ToolsPage
 
         echo '<form method="post">';
         wp_nonce_field('bizhub_run_tool', 'bizhub_tools_nonce');
-        echo '<p><button type="submit" name="tool" value="process_queue" class="button button-primary">' . esc_html__('Process Job Queue', 'bizhub') . '</button></p>';
-        echo '<p><button type="submit" name="tool" value="process_notifications" class="button button-primary">' . esc_html__('Process Notification Queue', 'bizhub') . '</button></p>';
+        echo '<p><button type="submit" name="tool" value="process_queue" class="button button-primary">'
+            . esc_html__('Process Job Queue', 'bizhub') . '</button></p>';
+        echo '<p><button type="submit" name="tool" value="process_notifications" class="button button-primary">'
+            . esc_html__('Process Notification Queue', 'bizhub') . '</button></p>';
         echo '</form></div>';
     }
 

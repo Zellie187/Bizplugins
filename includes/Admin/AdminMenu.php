@@ -49,10 +49,31 @@ final class AdminMenu
             56
         );
 
-        add_submenu_page('bizhub', __('Settings', 'bizhub'), __('Settings', 'bizhub'), $capability, 'bizhub', [$this->settingsPage, 'render']);
-        add_submenu_page('bizhub', __('Tools', 'bizhub'), __('Tools', 'bizhub'), $capability, 'bizhub-tools', [$this->toolsPage, 'render']);
-        add_submenu_page('bizhub', __('System Status', 'bizhub'), __('System Status', 'bizhub'), $capability, 'bizhub-status', [$this->systemStatusPage, 'render']);
-        add_submenu_page('bizhub', __('Logs', 'bizhub'), __('Logs', 'bizhub'), $capability, 'bizhub-logs', [$this->logsPage, 'render']);
+        $settingsLabel = __('Settings', 'bizhub');
+        add_submenu_page(
+            'bizhub',
+            $settingsLabel,
+            $settingsLabel,
+            $capability,
+            'bizhub',
+            [$this->settingsPage, 'render']
+        );
+
+        $toolsLabel = __('Tools', 'bizhub');
+        add_submenu_page('bizhub', $toolsLabel, $toolsLabel, $capability, 'bizhub-tools', [$this->toolsPage, 'render']);
+
+        $statusLabel = __('System Status', 'bizhub');
+        add_submenu_page(
+            'bizhub',
+            $statusLabel,
+            $statusLabel,
+            $capability,
+            'bizhub-status',
+            [$this->systemStatusPage, 'render']
+        );
+
+        $logsLabel = __('Logs', 'bizhub');
+        add_submenu_page('bizhub', $logsLabel, $logsLabel, $capability, 'bizhub-logs', [$this->logsPage, 'render']);
 
         add_submenu_page(
             'bizhub',
