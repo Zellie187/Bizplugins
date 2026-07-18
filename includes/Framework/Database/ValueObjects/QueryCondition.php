@@ -31,8 +31,8 @@ final readonly class QueryCondition
     public function toSql(string $placeholder): string
     {
         return sprintf(
-            '%s %s %s',
-            $this->column,
+            '`%s` %s %s',
+            str_replace('`', '``', $this->column),
             $this->operator,
             $placeholder
         );

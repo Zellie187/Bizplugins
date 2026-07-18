@@ -8,6 +8,22 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+**Install**
+- Database migration system (`Schema`, `Migrator`) covering all 13
+  tables the repositories require, applied idempotently via `dbDelta()`
+- `register_activation_hook()`/`register_deactivation_hook()` wired up
+  in `bizhub.php` (previously never registered, so `Activator` and
+  `Deactivator` were dead code)
+- Activation now also registers BizHub's WordPress roles
+  (`RoleInstaller`), which was likewise never invoked before
+- A boot-time version check (`InstallServiceProvider`) that re-runs
+  migrations after a plain "Update Now" in wp-admin, since WordPress
+  does not fire the activation hook on in-place plugin updates
+- Conservative `uninstall.php`: BizHub's tables and options are only
+  deleted if the user opts in via a new "Delete all BizHub data on
+  uninstall" setting, so upgrading/reinstalling never silently loses
+  business data
+
 **Framework**
 - Database abstraction (`DatabaseInterface`, `WordPressDatabase` driver,
   fluent query builder, transactions) with automatic table prefixing
@@ -76,6 +92,15 @@ All notable changes to this project will be documented in this file.
   `WC_Order_Item` type, which doesn't have that method
 - Fixed `phpstan.neon` pointing at a nonexistent `plugins/` directory,
   which meant static analysis was silently running on zero files
+- Fixed two MySQL reserved words (`order`, `read`) used as bare,
+  unquoted column names, which would have caused SQL syntax errors on
+  a real database; also made `WordPressDatabase` quote every column
+  identifier it builds, closing off the whole category of bug
+- Fixed the plugin never actually creating its database tables or
+  registering its WordPress roles - `register_activation_hook()` was
+  never called, and `Activator`/`Installer`/`RoleInstaller` were all
+  empty stubs, so the plugin could activate but nothing that touched
+  the database would have worked
 
 ### Technical
 

@@ -27,3 +27,28 @@ if (! function_exists('get_userdata')) {
         return $GLOBALS['__bizhub_test_users'][$userId] ?? false;
     }
 }
+
+if (! function_exists('get_option')) {
+    function get_option(string $name, mixed $default = false): mixed
+    {
+        return $GLOBALS['__bizhub_test_options'][$name] ?? $default;
+    }
+}
+
+if (! function_exists('update_option')) {
+    function update_option(string $name, mixed $value): bool
+    {
+        $GLOBALS['__bizhub_test_options'][$name] = $value;
+
+        return true;
+    }
+}
+
+if (! function_exists('delete_option')) {
+    function delete_option(string $name): bool
+    {
+        unset($GLOBALS['__bizhub_test_options'][$name]);
+
+        return true;
+    }
+}

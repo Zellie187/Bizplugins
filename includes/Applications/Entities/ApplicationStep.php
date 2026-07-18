@@ -111,7 +111,7 @@ final class ApplicationStep
             'uuid' => $this->uuid,
             'application_uuid' => $this->applicationUuid,
             'name' => $this->name,
-            'order' => $this->order,
+            'step_order' => $this->order,
             'completed' => $this->completed,
             'completed_at' => $this->completedAt?->format(DATE_ATOM),
         ];

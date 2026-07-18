@@ -14,6 +14,7 @@ use BizHub\Framework\Container\ContainerFactory;
 use BizHub\Framework\Database\Providers\DatabaseServiceProvider;
 use BizHub\Framework\Events\EventServiceProvider;
 use BizHub\Documents\Providers\DocumentServiceProvider;
+use BizHub\Framework\Install\Providers\InstallServiceProvider;
 use BizHub\Framework\Registries\ProviderRegistry;
 use BizHub\Integrations\Forminator\ServiceProvider as ForminatorServiceProvider;
 use BizHub\Integrations\WooCommerce\ServiceProvider as WooCommerceServiceProvider;
@@ -92,6 +93,7 @@ final class Application
     {
         $providers = [
             DatabaseServiceProvider::class,
+            InstallServiceProvider::class,
             EventServiceProvider::class,
             AuthServiceProvider::class,
             AuthorizationServiceProvider::class,

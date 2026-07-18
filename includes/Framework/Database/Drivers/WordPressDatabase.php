@@ -61,7 +61,7 @@ final class WordPressDatabase implements DatabaseInterface
             $clauses = [];
 
             foreach ($orderBy as $column => $direction) {
-                $clauses[] = sprintf('%s %s', $column, strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC');
+                $clauses[] = sprintf('%s %s', $this->quoteIdentifier($column), strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC');
             }
 
             $sql .= ' ORDER BY ' . implode(', ', $clauses);
@@ -79,7 +79,10 @@ final class WordPressDatabase implements DatabaseInterface
      */
     public function insert(string $table, array $data): int
     {
-        $columns = array_keys($data);
+        $columns = array_map(
+            fn (string $column): string => $this->quoteIdentifier($column),
+            array_keys($data)
+        );
 
         $placeholders = array_map(
             fn (mixed $value): string => (new QueryParameter($value))->placeholder(),
@@ -107,7 +110,7 @@ final class WordPressDatabase implements DatabaseInterface
         $bindings = [];
 
         foreach ($data as $column => $value) {
-            $sets[] = sprintf('%s = %s', $column, (new QueryParameter($value))->placeholder());
+            $sets[] = sprintf('%s = %s', $this->quoteIdentifier($column), (new QueryParameter($value))->placeholder());
             $bindings[] = $value;
         }
 
@@ -267,10 +270,19 @@ final class WordPressDatabase implements DatabaseInterface
         $bindings = [];
 
         foreach ($criteria as $column => $value) {
-            $clauses[] = sprintf('%s = %s', $column, (new QueryParameter($value))->placeholder());
+            $clauses[] = sprintf('%s = %s', $this->quoteIdentifier($column), (new QueryParameter($value))->placeholder());
             $bindings[] = $value;
         }
 
         return [' WHERE ' . implode(' AND ', $clauses), $bindings];
+    }
+
+    /**
+     * Quote a column identifier so that MySQL reserved words (e.g. "order",
+     * "read") can be used safely as column names.
+     */
+    private function quoteIdentifier(string $identifier): string
+    {
+        return '`' . str_replace('`', '``', $identifier) . '`';
     }
 }

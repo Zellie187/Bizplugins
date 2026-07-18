@@ -121,7 +121,7 @@ final class Notification
             'title' => $this->title,
             'message' => $this->message,
             'type' => $this->type,
-            'read' => $this->read,
+            'is_read' => $this->read,
             'created_at' => $this->createdAt->format(DATE_ATOM),
         ];
     }

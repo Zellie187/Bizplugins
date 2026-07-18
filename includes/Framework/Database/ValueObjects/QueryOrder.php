@@ -39,6 +39,6 @@ final readonly class QueryOrder
      */
     public function toSql(): string
     {
-        return sprintf('%s %s', $this->column, $this->direction);
+        return sprintf('`%s` %s', str_replace('`', '``', $this->column), $this->direction);
     }
 }

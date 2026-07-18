@@ -68,7 +68,7 @@ final class NotificationService
     {
         return count($this->database->findAll(
             self::TABLE,
-            ['client_uuid' => $clientUuid, 'read' => 0]
+            ['client_uuid' => $clientUuid, 'is_read' => 0]
         ));
     }
 
@@ -77,7 +77,7 @@ final class NotificationService
      */
     public function markAsRead(string $uuid): void
     {
-        $this->database->update(self::TABLE, ['read' => 1], ['uuid' => $uuid]);
+        $this->database->update(self::TABLE, ['is_read' => 1], ['uuid' => $uuid]);
     }
 
     /**
@@ -101,7 +101,7 @@ final class NotificationService
             $row['title'],
             $row['message'],
             $row['type'] ?? 'info',
-            (bool) $row['read'],
+            (bool) $row['is_read'],
             new DateTimeImmutable((string) $row['created_at'])
         );
     }

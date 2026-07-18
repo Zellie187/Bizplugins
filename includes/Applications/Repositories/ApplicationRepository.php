@@ -175,7 +175,7 @@ final class ApplicationRepository implements ApplicationRepositoryInterface
         $stepRows = $this->database->findAll(
             self::STEPS_TABLE,
             ['application_uuid' => $row['uuid']],
-            ['order' => 'ASC']
+            ['step_order' => 'ASC']
         );
 
         foreach ($stepRows as $stepRow) {
@@ -183,7 +183,7 @@ final class ApplicationRepository implements ApplicationRepositoryInterface
                 $stepRow['uuid'],
                 $stepRow['application_uuid'],
                 $stepRow['name'],
-                (int) $stepRow['order'],
+                (int) $stepRow['step_order'],
                 (bool) $stepRow['completed'],
                 empty($stepRow['completed_at']) ? null : new DateTimeImmutable((string) $stepRow['completed_at'])
             ));
