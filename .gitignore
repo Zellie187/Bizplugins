@@ -29,6 +29,10 @@ logs/
 
 # PHPUnit
 .phpunit.result.cache
+.phpunit.cache/
+
+# PHPStan
+.phpstan/
 
 # Coverage
 coverage/

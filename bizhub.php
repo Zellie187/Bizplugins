@@ -25,6 +25,16 @@ define('BIZHUB_PLUGIN_URL', plugin_dir_url(__FILE__));
 require_once BIZHUB_PLUGIN_PATH . 'vendor/autoload.php';
 
 use BizHub\Framework\Bootstrap\Application;
+use BizHub\Framework\Install\Activator;
+use BizHub\Framework\Install\Deactivator;
+
+register_activation_hook(__FILE__, static function (): void {
+    (new Activator())->activate();
+});
+
+register_deactivation_hook(__FILE__, static function (): void {
+    (new Deactivator())->deactivate();
+});
 
 add_action(
     'plugins_loaded',
