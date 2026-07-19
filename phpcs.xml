@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<ruleset name="BizUpKeepCore">
+    <description>
+        BizUpKeep Core follows the same standard as BizHub and BizUpKeep
+        Workflow: PSR-4 autoloading and PSR-12 formatting rather than
+        classic WordPress plugin conventions. WordPress-specific
+        security sniffs (escaping, nonce verification, SQL-injection
+        prevention) are layered on top since this is still a WordPress
+        plugin.
+    </description>
+
+    <file>includes</file>
+    <exclude-pattern>vendor/*</exclude-pattern>
+
+    <rule ref="PSR12"/>
+
+    <rule ref="WordPress.WP.I18n"/>
+    <rule ref="WordPress.DB.PreparedSQL"/>
+    <rule ref="WordPress.Security.NonceVerification"/>
+    <rule ref="WordPress.Security.ValidatedSanitizedInput"/>
+
+    <rule ref="WordPress.Security.EscapeOutput">
+        <include-pattern>includes/Bootstrap/DependencyGuard.php</include-pattern>
+    </rule>
+
+    <rule ref="PHPCompatibility">
+        <properties>
+            <property name="testVersion" value="8.2-"/>
+        </properties>
+        <exclude name="PHPCompatibility.Variables.ForbiddenThisUseContexts.OutsideObjectContext"/>
+    </rule>
+</ruleset>

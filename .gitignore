@@ -1,0 +1,41 @@
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vscode/
+
+# Composer
+/vendor/
+/composer.lock
+
+# PHPUnit
+.phpunit.result.cache
+.phpunit.cache/
+
+# PHPStan
+.phpstan/
+
+# Coverage
+coverage/
+.clover.xml
+
+# Build
+dist/
+build/
+
+# OS Temporary Files
+*.tmp
+*.temp
+
+# Archive Files
+*.zip
+*.tar
+*.gz
+
+# Local Configuration
+local.php

@@ -1,0 +1,66 @@
+name: PHP CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "feature/**"
+      - "release/**"
+      - "hotfix/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  quality:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        php-version: ['8.2', '8.3']
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: none
+          tools: composer
+
+      - name: Validate Composer
+        run: composer validate --no-check-publish || true
+
+      - name: Install Dependencies
+        run: |
+          if [ -f composer.json ]; then
+            composer install --prefer-dist --no-progress
+          fi
+
+      - name: PHP Syntax Check
+        run: |
+          find . -type f -name "*.php" -print0 | xargs -0 -n1 php -l
+
+      - name: PHP_CodeSniffer
+        run: |
+          if [ -f vendor/bin/phpcs ]; then
+            vendor/bin/phpcs
+          fi
+
+      - name: PHPStan
+        run: |
+          if [ -f vendor/bin/phpstan ]; then
+            vendor/bin/phpstan analyse
+          fi
+
+      - name: PHPUnit
+        run: |
+          if [ -f vendor/bin/phpunit ]; then
+            vendor/bin/phpunit
+          fi

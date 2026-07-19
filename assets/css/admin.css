@@ -1,0 +1,30 @@
+/**
+ * BizUpKeep Core
+ * Admin Styles
+ * Version: 1.0.0
+ */
+:root {
+	--buk-primary: #1e73be;
+	--buk-secondary: #0f172a;
+	--buk-success: #16a34a;
+	--buk-warning: #f59e0b;
+	--buk-danger: #dc2626;
+	--buk-border: #dcdcde;
+	--buk-background: #f6f7f7;
+}
+.bizupkeep-admin-hidden {
+	display: none;
+}
+.bizupkeep-admin-wrap {
+	background: #ffffff;
+	border: 1px solid var(--buk-border);
+	border-radius: 8px;
+	padding: 24px;
+	margin-top: 20px;
+}
+.bizupkeep-admin-title {
+	margin: 0 0 16px;
+	font-size: 24px;
+	font-weight: 600;
+	color: var(--buk-secondary);
+}

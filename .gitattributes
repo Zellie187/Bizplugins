@@ -1,0 +1,36 @@
+* text=auto eol=lf
+
+*.php      text
+*.js       text
+*.css      text
+*.json     text
+*.xml      text
+*.md       text
+*.yml      text
+*.yaml     text
+
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.svg      text
+*.ico      binary
+*.woff     binary
+*.woff2    binary
+*.ttf      binary
+*.eot      binary
+*.pdf      binary
+*.zip      binary
+
+# Release archive exclusions (git archive / GitHub auto-generated zips)
+/tests            export-ignore
+/bin              export-ignore
+/.editorconfig    export-ignore
+/.gitattributes   export-ignore
+/.gitignore       export-ignore
+/phpunit.xml      export-ignore
+/phpstan.neon     export-ignore
+/phpcs.xml        export-ignore
+/CONTRIBUTING.md  export-ignore
+/CODEOWNERS       export-ignore
+.gitkeep          export-ignore
