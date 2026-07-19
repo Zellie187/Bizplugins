@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [0.2.1] - Release packaging & activation fix
 
 ### Added
 
@@ -17,6 +17,21 @@ All notable changes to this project will be documented in this file.
 - A "Release Build" GitHub Actions workflow that runs the build script and
   publishes the resulting ZIP as a GitHub Release asset whenever a `vX.Y.Z`
   tag is pushed
+- `ContainerBootTest`, an integration test that resolves every module
+  provider through the real DI container instead of hand-constructed test
+  doubles, so a missing container binding fails CI instead of reaching
+  production
+
+### Fixed
+
+- Fatal error on activation: `AuthorizationServiceInterface` had no DI
+  container binding, because `includes/Security` was the only module that
+  never got a `definitions.php` (every other module has one). Any request
+  path touching document security (e.g. loading `wp-admin/plugins.php`
+  itself, since `DocumentServiceProvider` is eagerly resolved at boot)
+  crashed with `DI\Definition\Exception\InvalidDefinition: ... the class is
+  not instantiable`. Added `includes/Security/definitions.php` binding it to
+  `AuthorizationService`
 
 ---
 
