@@ -21,9 +21,12 @@
     "repositories": [
         {
             "type": "path",
-            "url": "../Bizhub_plugin",
+            "url": "../bizhub",
             "options": {
-                "symlink": false
+                "symlink": false,
+                "versions": {
+                    "bizupkeep/bizhub-plugin": "dev-main"
+                }
             }
         }
     ],
