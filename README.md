@@ -17,8 +17,8 @@ platform built as a WordPress plugin.
 Sprints 001–014 implemented (Framework, Security, Companies,
 ClientPortal, Applications, Documents, WooCommerce/Forminator
 integrations, Dashboard, Notifications, REST API, Administration,
-Reporting, Testing). Sprints 015–017 (Assets, Localization, final
-Release polish) remain.
+Reporting, Testing) and Sprint 017 (release scaffolding). Sprints
+015–016 (Assets, Localization) remain.
 
 ---
 
@@ -63,6 +63,7 @@ with WooCommerce and Forminator integrations.
 # Repository Layout
 
 ```text
+bin/                 # Release build script
 includes/
 ├── Admin/            # Admin menu and settings pages
 ├── Api/               # REST API (bizhub/v1)
@@ -107,6 +108,27 @@ vendor/bin/phpstan analyse --memory-limit=1G
 # Check coding standards
 vendor/bin/phpcs --standard=phpcs.xml
 ```
+
+---
+
+# Building a Release ZIP
+
+`bizhub.php` requires `vendor/autoload.php`, but `vendor/` is not committed
+to this repository. A WordPress-installable ZIP with production-only
+dependencies bundled in can be built with:
+
+```bash
+bin/build-zip.sh [version]
+```
+
+This archives the current commit (excluding dev-only files per
+`.gitattributes`), runs `composer install --no-dev --optimize-autoloader`
+inside it, and produces `build/bizhub-<version>.zip` with `bizhub/` as its
+top-level folder — ready to extract into `wp-content/plugins/`.
+
+Pushing a git tag matching `vX.Y.Z` also triggers the "Release Build"
+GitHub Actions workflow, which builds the same ZIP and publishes it as a
+GitHub Release asset.
 
 ---
 

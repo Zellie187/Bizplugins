@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- Release packaging pipeline: `bin/build-zip.sh` builds a WordPress-installable
+  ZIP from the current commit with production-only Composer dependencies
+  bundled in (`composer install --no-dev --optimize-autoloader`), since
+  `vendor/` is not committed to the repository
+- `.gitattributes` `export-ignore` rules excluding dev-only files (tests,
+  docs, CI config, linting/static-analysis config) from `git archive` output
+- A "Release Build" GitHub Actions workflow that runs the build script and
+  publishes the resulting ZIP as a GitHub Release asset whenever a `vX.Y.Z`
+  tag is pushed
+
+---
+
 ## [0.2.0] - Sprints 001.5–014
 
 ### Added
