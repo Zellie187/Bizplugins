@@ -39,6 +39,11 @@ use DI\Container;
 final class Application
 {
     /**
+     * Singleton instance, set once boot() has run.
+     */
+    private static ?Application $instance = null;
+
+    /**
      * Dependency Injection Container.
      */
     private Container $container;
@@ -72,6 +77,15 @@ final class Application
         $this->registerProviders();
 
         /*
+         * Extension point:
+         * Allow external plugins built on top of BizHub (e.g. BizUpKeep
+         * Workflow) to register their own Service Providers into this
+         * same container/registry, so their services participate in
+         * the same register/boot lifecycle instead of bypassing it.
+         */
+        do_action('bizhub/register_providers', $this->providerRegistry, $this->container);
+
+        /*
          * First pass:
          * Register every provider.
          */
@@ -82,6 +96,23 @@ final class Application
          * Boot every provider.
          */
         $this->providerRegistry->boot();
+
+        self::$instance = $this;
+
+        /*
+         * Fires once BizHub and every registered provider (core and
+         * external) has finished booting.
+         */
+        do_action('bizhub/booted', $this);
+    }
+
+    /**
+     * Return the booted Application instance, or null if BizHub has
+     * not finished booting yet.
+     */
+    public static function instance(): ?self
+    {
+        return self::$instance;
     }
 
     /**

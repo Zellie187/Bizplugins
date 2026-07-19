@@ -19,6 +19,7 @@ foreach ([
     'WEEK_IN_SECONDS' => 604800,
     'MONTH_IN_SECONDS' => 2592000,
     'YEAR_IN_SECONDS' => 31536000,
+    'ARRAY_A' => 'ARRAY_A',
 ] as $constant => $value) {
     if (! defined($constant)) {
         define($constant, $value);
@@ -80,5 +81,46 @@ if (! function_exists('delete_option')) {
         unset($GLOBALS['__bizhub_test_options'][$name]);
 
         return true;
+    }
+}
+
+if (! function_exists('add_filter')) {
+    /**
+     * Minimal WordPress hook stand-in: registers a callback for a
+     * given filter/action tag. Priority and argument count are
+     * accepted for signature compatibility but not enforced.
+     */
+    function add_filter(string $tag, callable $callback, int $priority = 10, int $acceptedArgs = 1): bool
+    {
+        $GLOBALS['__bizhub_test_hooks'][$tag][] = $callback;
+
+        return true;
+    }
+}
+
+if (! function_exists('add_action')) {
+    function add_action(string $tag, callable $callback, int $priority = 10, int $acceptedArgs = 1): bool
+    {
+        return add_filter($tag, $callback, $priority, $acceptedArgs);
+    }
+}
+
+if (! function_exists('apply_filters')) {
+    function apply_filters(string $tag, mixed $value, mixed ...$args): mixed
+    {
+        foreach ($GLOBALS['__bizhub_test_hooks'][$tag] ?? [] as $callback) {
+            $value = $callback($value, ...$args);
+        }
+
+        return $value;
+    }
+}
+
+if (! function_exists('do_action')) {
+    function do_action(string $tag, mixed ...$args): void
+    {
+        foreach ($GLOBALS['__bizhub_test_hooks'][$tag] ?? [] as $callback) {
+            $callback(...$args);
+        }
     }
 }

@@ -44,7 +44,34 @@ final class ContainerFactory
             $builder->addDefinitions($file);
         }
 
+        foreach (self::externalDefinitions() as $definitions) {
+            $builder->addDefinitions($definitions);
+        }
+
         return $builder->build();
+    }
+
+    /**
+     * Allow external plugins built on top of BizHub (e.g. BizUpKeep
+     * Workflow) to contribute their own PHP-DI definitions into the
+     * shared container, instead of building a second container.
+     *
+     * Callbacks must run before this method executes, i.e. during
+     * plugin file inclusion (before 'plugins_loaded'), since the
+     * container is created from within a 'plugins_loaded' callback.
+     *
+     * Each entry may be either a path to a definitions file (as
+     * accepted by ContainerBuilder::addDefinitions()) or a
+     * `array<string,mixed>` of raw definitions.
+     *
+     * @return array<int,string|array<string,mixed>>
+     */
+    private static function externalDefinitions(): array
+    {
+        /** @var array<int,string|array<string,mixed>> $definitions */
+        $definitions = apply_filters('bizhub/container_definitions', []);
+
+        return $definitions;
     }
 
     /**

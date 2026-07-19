@@ -80,15 +80,19 @@ final class WordPressDatabase implements DatabaseInterface
      */
     public function insert(string $table, array $data): int
     {
-        $columns = array_map(
-            fn (string $column): string => $this->quoteIdentifier($column),
-            array_keys($data)
-        );
+        $columns = [];
+        $placeholders = [];
+        $bindings = [];
 
-        $placeholders = array_map(
-            fn (mixed $value): string => (new QueryParameter($value))->placeholder(),
-            array_values($data)
-        );
+        foreach ($data as $column => $value) {
+            $columns[] = $this->quoteIdentifier($column);
+            [$placeholder, $binding] = $this->bind($value);
+            $placeholders[] = $placeholder;
+
+            if ($binding !== []) {
+                $bindings[] = $binding[0];
+            }
+        }
 
         $sql = sprintf(
             'INSERT INTO %s (%s) VALUES (%s)',
@@ -97,7 +101,7 @@ final class WordPressDatabase implements DatabaseInterface
             implode(', ', $placeholders)
         );
 
-        $this->execute($sql, array_values($data));
+        $this->execute($sql, $bindings);
 
         return (int) $this->wpdb->insert_id;
     }
@@ -111,8 +115,9 @@ final class WordPressDatabase implements DatabaseInterface
         $bindings = [];
 
         foreach ($data as $column => $value) {
-            $sets[] = sprintf('%s = %s', $this->quoteIdentifier($column), (new QueryParameter($value))->placeholder());
-            $bindings[] = $value;
+            [$placeholder, $binding] = $this->bind($value);
+            $sets[] = sprintf('%s = %s', $this->quoteIdentifier($column), $placeholder);
+            $bindings = array_merge($bindings, $binding);
         }
 
         [$where, $whereBindings] = $this->buildWhere($criteria);
@@ -271,12 +276,43 @@ final class WordPressDatabase implements DatabaseInterface
         $bindings = [];
 
         foreach ($criteria as $column => $value) {
-            $placeholder = (new QueryParameter($value))->placeholder();
+            if ($value === null) {
+                $clauses[] = sprintf('%s IS NULL', $this->quoteIdentifier($column));
+
+                continue;
+            }
+
+            [$placeholder, $binding] = $this->bind($value);
             $clauses[] = sprintf('%s = %s', $this->quoteIdentifier($column), $placeholder);
-            $bindings[] = $value;
+            $bindings = array_merge($bindings, $binding);
         }
 
         return [' WHERE ' . implode(' AND ', $clauses), $bindings];
+    }
+
+    /**
+     * Resolve a value to its SQL placeholder and, unless the value is
+     * null, the binding to pass alongside it to $wpdb->prepare().
+     *
+     * $wpdb->prepare() has no placeholder syntax for a literal SQL
+     * NULL: passing PHP null through a %s/%d/%f placeholder casts it
+     * to an empty string or zero rather than emitting NULL, which
+     * silently corrupts nullable DATETIME columns on any server whose
+     * SQL mode does not include NO_ZERO_DATE/STRICT_TRANS_TABLES (MySQL
+     * coerces the resulting invalid empty-string date into the
+     * "zero date" '0000-00-00 00:00:00' instead of raising an error).
+     * A null value is therefore written as the literal, unparameterized
+     * SQL keyword NULL, with no corresponding binding.
+     *
+     * @return array{0:string,1:array<int,mixed>}
+     */
+    private function bind(mixed $value): array
+    {
+        if ($value === null) {
+            return ['NULL', []];
+        }
+
+        return [(new QueryParameter($value))->placeholder(), [$value]];
     }
 
     /**

@@ -3,7 +3,7 @@
  * Plugin Name: BizHub
  * Plugin URI: https://bizupkeep.co.za
  * Description: Enterprise Business Management Platform.
- * Version: 0.2.1
+ * Version: 0.2.3
  * Author: BizUpKeep
  * Author URI: https://bizupkeep.co.za
  * Requires at least: 6.7
@@ -46,3 +46,18 @@ add_action(
 
     }
 );
+
+/**
+ * Return the booted BizHub Application instance.
+ *
+ * Returns null if called before the 'plugins_loaded' action has
+ * fired, or before BizHub has finished booting. External plugins
+ * built on top of BizHub should resolve dependencies from
+ * bizhub()?->container() rather than building their own container.
+ *
+ * @return Application|null
+ */
+function bizhub(): ?Application
+{
+    return Application::instance();
+}
