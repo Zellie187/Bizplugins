@@ -1,0 +1,19 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+
+    level: 6
+
+    paths:
+        - includes
+
+    tmpDir: .phpstan
+
+    inferPrivatePropertyTypeFromConstructor: true
+
+    ignoreErrors:
+        # BIZUPKEEP_WORKFLOW_* path constants are define()'d at runtime by
+        # bizupkeep-workflow.php / Constants::register(); no stub package
+        # can know about them ahead of time.
+        - '#^Constant BIZUPKEEP_WORKFLOW_[A-Z_]+ not found\.$#'
