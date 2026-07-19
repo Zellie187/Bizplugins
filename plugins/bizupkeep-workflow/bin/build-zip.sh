@@ -71,6 +71,21 @@ fi
 
 (
     cd build/bizupkeep-workflow
+
+    # Drop require-dev/repositories before installing: the only
+    # repository declared here is a dev-only path-repository pointing
+    # at a sibling BizHub checkout (for phpstan/tests), which does not
+    # exist relative to this staged copy. Composer validates declared
+    # repositories eagerly even when nothing in a --no-dev install
+    # actually needs them, so a stale/missing composer.lock makes this
+    # fail on a fresh checkout unless those keys are removed first.
+    php -r '
+        $composer = json_decode(file_get_contents("composer.json"), true);
+        unset($composer["repositories"], $composer["require-dev"]);
+        file_put_contents("composer.json", json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+    '
+    rm -f composer.lock
+
     composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
     rm -f composer.json composer.lock
 )
