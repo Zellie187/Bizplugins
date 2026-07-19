@@ -1,0 +1,60 @@
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vscode/
+
+# Composer
+/vendor/
+/composer.lock
+
+# Logs
+*.log
+storage/logs/*
+!storage/logs/.gitkeep
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# PHPUnit
+.phpunit.result.cache
+.phpunit.cache/
+
+# PHPStan
+.phpstan/
+
+# Coverage
+coverage/
+.clover.xml
+
+# Build
+dist/
+build/
+
+# Runtime storage
+storage/cache/*
+!storage/cache/.gitkeep
+storage/sessions/*
+!storage/sessions/.gitkeep
+storage/workflow/*
+!storage/workflow/.gitkeep
+
+# OS Temporary Files
+*.tmp
+*.temp
+
+# Archive Files
+*.zip
+*.tar
+*.gz
+
+# Local Configuration
+local.php
+config/local.php
