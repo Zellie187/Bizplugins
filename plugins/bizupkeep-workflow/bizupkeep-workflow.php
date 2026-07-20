@@ -32,6 +32,7 @@ define('BIZUPKEEP_WORKFLOW_BASENAME', plugin_basename(__FILE__));
 
 require_once BIZUPKEEP_WORKFLOW_PATH . 'vendor/autoload.php';
 
+use BizHub\Workflow\Admin\Providers\QualityReviewAdminServiceProvider;
 use BizHub\Workflow\Bootstrap\Constants;
 use BizHub\Workflow\Bootstrap\DependencyGuard;
 use BizHub\Workflow\Bootstrap\Plugin;
@@ -104,6 +105,7 @@ add_action(
          */
         $providerRegistry->add(WorkflowServiceProvider::class);
         $providerRegistry->add(CompanyRegistrationServiceProvider::class);
+        $providerRegistry->add(QualityReviewAdminServiceProvider::class);
     },
     10,
     2
