@@ -1,6 +1,6 @@
 # Address Changes Workflow
 
-**Status: specified, not yet implemented.** A CIPC-facing workflow for updating a company's registered or postal address, to be built as `AddressChangesDefinition`/`Guard`/`Service` under `includes/Workflows/AddressChanges/`.
+**Status: superseded by the combined Company Amendment workflow.** Rather than a standalone `address_changes` workflow type, address changes are now implemented as one of the amendment types a client can select (alongside Director and Name changes, in any combination) within `CompanyAmendmentDefinition`/`Guard`/`Service` (type `company_amendment`, under `includes/Workflows/CompanyAmendment/`) — see `ROADMAP.md` for why. `CompanyAmendmentGuard` requires a complete new address (line 1, city, postal code) when `address` is among the workflow's `amendment_types`, but does not yet distinguish registered-office vs. postal address per the Business Rules section below — that distinction remains a future refinement.
 
 **Type identifier (proposed)**: `address_changes`. **Subject**: `subject_type = 'company'`.
 

@@ -1,6 +1,6 @@
 # Name Changes Workflow
 
-**Status: specified, not yet implemented.** A CIPC-facing workflow for changing a registered company's name, to be built as `NameChangesDefinition`/`Guard`/`Service` under `includes/Workflows/NameChanges/`.
+**Status: superseded by the combined Company Amendment workflow.** Rather than a standalone `name_changes` workflow type, name changes are now implemented as one of the amendment types a client can select (alongside Director and Address changes, in any combination) within `CompanyAmendmentDefinition`/`Guard`/`Service` (type `company_amendment`, under `includes/Workflows/CompanyAmendment/`) — see `ROADMAP.md` for why. `CompanyAmendmentGuard` requires at least one proposed name when `name` is among the workflow's `amendment_types` (client-facing form should collect up to 4, in order of preference, matching CIPC's name-reservation practice), but does not yet perform the CIPC name-availability lookup described below.
 
 **Type identifier (proposed)**: `name_changes`. **Subject**: `subject_type = 'company'`.
 

@@ -1,6 +1,6 @@
 # Annual Returns Workflow
 
-**Status: specified, not yet implemented.** A CIPC compliance workflow for a company's mandatory Annual Return filing, to be built as `AnnualReturnsDefinition`/`Guard`/`Service` under `includes/Workflows/AnnualReturns/`.
+**Status: implemented.** Built as `AnnualReturnDefinition`/`Guard`/`Service`/`ServiceProvider` (type `annual_return`) under `includes/Workflows/AnnualReturn/`, following this document's proposed lifecycle exactly (no PendingDocuments/DocumentsVerified stage, no Reject path). `AnnualReturnService::start()` additionally enforces the "not already filed" rule below: at most one non-cancelled Annual Return per company per financial year. Not yet built: REST controller/routes, the due-date/reminder automation described in Business Rules and Notifications (blocked on the queue/automation architecture referenced there), and admin/client-facing UI.
 
 **Type identifier (proposed)**: `annual_returns`. **Subject**: `subject_type = 'company'`.
 

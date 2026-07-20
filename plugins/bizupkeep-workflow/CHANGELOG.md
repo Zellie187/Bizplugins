@@ -2,6 +2,19 @@
 
 All notable changes to BizUpKeep Workflow are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Company Amendment workflow**: `CompanyAmendmentDefinition`/`Guard`/`Service`/`ServiceProvider` (type `company_amendment`) — a single application covering Director, Name, and/or registered-Address changes in any combination, matching the product catalogue's combined SKUs. See `ROADMAP.md` for how this departs from the three separate workflow types originally proposed in `docs/workflows/Director-Changes.md`/`Name-Changes.md`/`Address-Changes.md`.
+- **Annual Return workflow**: `AnnualReturnDefinition`/`Guard`/`Service`/`ServiceProvider` (type `annual_return`), implemented per `docs/workflows/Annual-Returns.md`, including a duplicate-filing guard (one non-cancelled Annual Return per company per financial year).
+- **Quality Review admin screen**: a staff-facing submenu under BizHub's admin menu listing every Company Registration application in `QualityReview`, with Approve/Reject actions and document download.
+- 16 new PHPUnit tests covering both new workflow guards (48 total, up from 32), all passing; PHPStan level 6 and PHPCS clean.
+
+### Not yet built for the two new workflow types
+
+REST controllers/routes, an admin or client-facing form UI, and `BizHub\Companies\Entities\Director` fields for contact/address details (currently name + ID/passport + appointment dates only) — planned for the next round, once the client-facing application form's field requirements are settled.
+
 ## [1.0.0] - 2026-07-19
 
 Initial release.

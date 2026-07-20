@@ -38,6 +38,8 @@ use BizHub\Workflow\Bootstrap\DependencyGuard;
 use BizHub\Workflow\Bootstrap\Plugin;
 use BizHub\Workflow\Install\Activator;
 use BizHub\Workflow\Install\Deactivator;
+use BizHub\Workflow\Providers\AnnualReturnServiceProvider;
+use BizHub\Workflow\Providers\CompanyAmendmentServiceProvider;
 use BizHub\Workflow\Providers\CompanyRegistrationServiceProvider;
 use BizHub\Workflow\Providers\WorkflowServiceProvider;
 use BizHub\Framework\Registries\ProviderRegistry;
@@ -105,6 +107,8 @@ add_action(
          */
         $providerRegistry->add(WorkflowServiceProvider::class);
         $providerRegistry->add(CompanyRegistrationServiceProvider::class);
+        $providerRegistry->add(CompanyAmendmentServiceProvider::class);
+        $providerRegistry->add(AnnualReturnServiceProvider::class);
         $providerRegistry->add(QualityReviewAdminServiceProvider::class);
     },
     10,
