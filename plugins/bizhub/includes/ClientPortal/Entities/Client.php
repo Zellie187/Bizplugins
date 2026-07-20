@@ -22,7 +22,8 @@ final class Client
         private Profile $profile,
         private ClientStatus $status = ClientStatus::PENDING,
         private readonly DateTimeImmutable $createdAt = new DateTimeImmutable(),
-        private ?DateTimeImmutable $updatedAt = null
+        private ?DateTimeImmutable $updatedAt = null,
+        private readonly ?int $id = null
     ) {
         $this->validate();
     }
@@ -39,6 +40,18 @@ final class Client
         if ($this->wpUserId <= 0) {
             throw new InvalidArgumentException('Invalid WordPress user ID.');
         }
+    }
+
+    /**
+     * Get the internal numeric database identifier, if this client has
+     * been persisted and hydrated from a row. Null for an entity built
+     * via ClientService::createClient() before it has been saved and
+     * re-fetched - ClientRepository::save() does not populate this
+     * back onto the entity it was given.
+     */
+    public function getId(): ?int
+    {
+        return $this->id;
     }
 
     /**

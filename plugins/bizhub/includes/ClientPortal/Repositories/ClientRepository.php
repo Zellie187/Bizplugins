@@ -108,7 +108,8 @@ final class ClientRepository implements ClientRepositoryInterface
             $profile,
             ClientStatus::from($row['status']),
             new DateTimeImmutable((string) $row['created_at']),
-            empty($row['updated_at']) ? null : new DateTimeImmutable((string) $row['updated_at'])
+            empty($row['updated_at']) ? null : new DateTimeImmutable((string) $row['updated_at']),
+            (int) $row['id']
         );
     }
 

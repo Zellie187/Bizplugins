@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.2.4] - Expose Client's numeric ID
+
+### Fixed
+
+- `ClientPortal\Entities\Client` now exposes its internal numeric `bizhub_clients.id`
+  via a new `getId(): ?int` accessor, populated by `ClientRepository::hydrate()`.
+  Previously there was no service-layer way to resolve a logged-in WordPress
+  user to the numeric client ID that `bizhub_applications.client_id` (and any
+  other module keyed on it) requires - callers had to either query the table
+  directly or, as seen in the existing REST `ApplicationController::index()`
+  and the WooCommerce integration's `ApplicationCreator`, incorrectly pass the
+  WordPress user ID or client UUID in its place. This is purely additive: the
+  new constructor parameter is optional and defaults to `null`, so existing
+  callers (`ClientService::createClient()`) are unaffected.
+
 ## [0.2.1] - Release packaging & activation fix
 
 ### Added
