@@ -26,7 +26,8 @@ final class AnnualReturnGuard implements TransitionGuardInterface
         array $context
     ): void {
         match ($action) {
-            AnnualReturnDefinition::ACTION_REQUEST_PAYMENT => $this->guardRequestPayment($context),
+            AnnualReturnDefinition::ACTION_REQUEST_PAYMENT,
+            AnnualReturnDefinition::ACTION_REVISE_QUOTE => $this->guardQuoteAmount($context),
             AnnualReturnDefinition::ACTION_CONFIRM_PAYMENT => $this->guardConfirmPayment($context),
             AnnualReturnDefinition::ACTION_APPROVE => $this->guardApprove($context),
             default => null,
@@ -39,11 +40,14 @@ final class AnnualReturnGuard implements TransitionGuardInterface
      * specific amount" - per the workflow spec's "staff to check
      * annual returns on CIPC site >> send quote to client" step, which
      * this guard is the only enforcement point for (nothing upstream
-     * of it knows or cares what CIPC actually says).
+     * of it knows or cares what CIPC actually says). Shared with
+     * revise_quote, which carries the exact same precondition - it's
+     * just the same requirement applied to a workflow that's already
+     * been quoted once.
      *
      * @param array<string,mixed> $context
      */
-    private function guardRequestPayment(array $context): void
+    private function guardQuoteAmount(array $context): void
     {
         $amount = $context['quote_amount'] ?? null;
 

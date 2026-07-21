@@ -2,6 +2,15 @@
 
 All notable changes to BizUpKeep Workflow are documented in this file.
 
+## [1.6.0] - 2026-07-21
+
+### Added
+
+- **Annual Return applications can now cover multiple financial years at once**: `AnnualReturnService::start()` takes `$filings` (a list of `{financial_year, turnover}` pairs) instead of a single `int $financialYear` - a client behind on several years' filings pays for all of them together, not as separate applications. Turnover is asked for per year since CIPC's filing fee is turnover-banded, and is shown to staff (alongside financial year) on Quality Review to help them work out the right quote.
+- `AnnualReturnService::alreadyFiled()` (now `alreadyFiledYears()`) checks every requested year against every one of the company's existing, non-cancelled Annual Return workflows, each of which may itself cover several years - old single-`financial_year` metadata (from before this shape existed) is read as a one-entry list, so historical workflows are still counted correctly.
+- **Revise Quote**: a new `revise_quote` action (a self-loop, `AwaitingPayment -> AwaitingPayment`) closes the gap flagged in 1.5.0's changelog - staff can now correct a wrong quote amount/notes before the client pays, via the same "Send Quote" form on Quality Review (which now also renders, pre-filled with the current amount/notes, while `AwaitingPayment`, not just `Created`). Guarded by the same `quote_amount > 0` precondition as `request_payment` (`AnnualReturnGuard::guardQuoteAmount()`, renamed from `guardRequestPayment()` since it now serves both actions). Which action actually fires is derived server-side from the workflow's current status, not trusted from the submitted form.
+- 8 new PHPUnit tests (2 guard, 6 in a new `AnnualReturnServiceTest.php` covering multi-year filings, duplicate-year detection including the backward-compatible old-shape check, and the revise-quote lifecycle), 69 total (up from 61); PHPStan and PHPCS clean.
+
 ## [1.5.0] - 2026-07-21
 
 ### Changed

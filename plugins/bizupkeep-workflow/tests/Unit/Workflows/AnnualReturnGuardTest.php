@@ -80,6 +80,30 @@ final class AnnualReturnGuardTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
+    public function test_revise_quote_requires_a_positive_quote_amount(): void
+    {
+        $this->expectException(PreconditionFailedException::class);
+
+        $this->guard->guard(
+            $this->workflow,
+            WorkflowStatus::AwaitingPayment,
+            AnnualReturnDefinition::ACTION_REVISE_QUOTE,
+            ['quote_amount' => 0]
+        );
+    }
+
+    public function test_revise_quote_succeeds_with_a_positive_quote_amount(): void
+    {
+        $this->guard->guard(
+            $this->workflow,
+            WorkflowStatus::AwaitingPayment,
+            AnnualReturnDefinition::ACTION_REVISE_QUOTE,
+            ['quote_amount' => 900.00]
+        );
+
+        $this->addToAssertionCount(1);
+    }
+
     public function test_confirm_payment_requires_a_payment_reference(): void
     {
         $this->expectException(PreconditionFailedException::class);

@@ -398,13 +398,17 @@ final class QualityReviewPage
     }
 
     /**
-     * Handle the staff "Send Quote" POST submission for an Annual
-     * Return application still sitting in Created - the "staff to
-     * check annual returns on CIPC site >> send quote to client" step
-     * from the workflow spec. Fires `request_payment` with the entered
-     * amount (and optional notes) as context, which
-     * AnnualReturnGuard::guardRequestPayment() requires before it will
-     * allow the Created -> AwaitingPayment transition at all.
+     * Handle the staff "Send Quote" / "Revise Quote" POST submission
+     * for an Annual Return application - the "staff to check annual
+     * returns on CIPC site >> send quote to client" step from the
+     * workflow spec, plus the ability to correct a wrong amount before
+     * the client pays. Which action actually fires - request_payment
+     * (Created -> AwaitingPayment) or revise_quote (a same-status
+     * AwaitingPayment -> AwaitingPayment overwrite) - is derived here
+     * from the workflow's OWN current status, not trusted from the
+     * form, so a client can't be tricked into anything by a stale page
+     * or a tampered request: the exact same form posts to both cases,
+     * renderQuoteForm() just labels the button differently.
      *
      * @return array{0:string,1:string}|null
      */
@@ -438,20 +442,28 @@ final class QualityReviewPage
             return ['error', __('Please enter a quote amount greater than zero.', 'bizupkeep-workflow')];
         }
 
+        $isRevision = $workflow->getStatus() === WorkflowStatus::AwaitingPayment;
+        $action = $isRevision
+            ? AnnualReturnDefinition::ACTION_REVISE_QUOTE
+            : AnnualReturnDefinition::ACTION_REQUEST_PAYMENT;
+
         try {
             $this->annualReturns->performAction(
                 $workflowUuid,
-                AnnualReturnDefinition::ACTION_REQUEST_PAYMENT,
+                $action,
                 $userId,
                 sprintf(
-                    /* translators: %s: currently logged-in staff member's display name */
-                    __('Quote sent by %s.', 'bizupkeep-workflow'),
+                    /* translators: 1: "Quote sent" or "Quote revised", 2: staff member's display name */
+                    __('%1$s by %2$s.', 'bizupkeep-workflow'),
+                    $isRevision ? __('Quote revised', 'bizupkeep-workflow') : __('Quote sent', 'bizupkeep-workflow'),
                     $this->currentUserLabel()
                 ),
                 ['quote_amount' => (float) $amountRaw, 'quote_notes' => $notes]
             );
 
-            return ['success', __('Quote sent - the client can now pay.', 'bizupkeep-workflow')];
+            return ['success', $isRevision
+                ? __('Quote revised.', 'bizupkeep-workflow')
+                : __('Quote sent - the client can now pay.', 'bizupkeep-workflow')];
         } catch (ValidationException | PreconditionFailedException | InvalidTransitionException $exception) {
             return ['error', $exception->getMessage()];
         } catch (WorkflowNotFoundException $exception) {
@@ -558,7 +570,7 @@ final class QualityReviewPage
 
         if (
             $workflow->getWorkflowType() === AnnualReturnDefinition::TYPE
-            && $workflow->getStatus() === WorkflowStatus::Created
+            && in_array($workflow->getStatus(), [WorkflowStatus::Created, WorkflowStatus::AwaitingPayment], true)
         ) {
             $this->renderQuoteForm($workflow);
         }
@@ -610,11 +622,26 @@ final class QualityReviewPage
 
         if ($workflow->getWorkflowType() === AnnualReturnDefinition::TYPE) {
             echo '<h3>' . esc_html__('Filing Details', 'bizupkeep-workflow') . '</h3>';
+
+            $filings = $this->filingsFromMetadata($metadata);
+
+            echo '<table class="form-table"><tbody>'
+                . '<tr><th>' . esc_html__('Financial Year', 'bizupkeep-workflow') . '</th>'
+                . '<th>' . esc_html__('Turnover', 'bizupkeep-workflow') . '</th></tr>';
+
+            foreach ($filings as $filing) {
+                $year = (int) ($filing['financial_year'] ?? 0);
+                $turnover = $filing['turnover'] ?? null;
+                $turnoverLabel = is_numeric($turnover)
+                    ? number_format((float) $turnover, 2)
+                    : __('(not provided)', 'bizupkeep-workflow');
+
+                echo '<tr><td>' . esc_html((string) $year) . '</td><td>' . esc_html($turnoverLabel) . '</td></tr>';
+            }
+
+            echo '</tbody></table>';
+
             echo '<table class="form-table"><tbody>';
-            $this->row(
-                __('Financial Year', 'bizupkeep-workflow'),
-                (string) (int) ($metadata['financial_year'] ?? 0)
-            );
 
             $clientNotes = is_string($metadata['client_notes'] ?? null) ? $metadata['client_notes'] : '';
 
@@ -784,18 +811,39 @@ final class QualityReviewPage
     }
 
     /**
-     * The staff-facing "Send Quote" form for an Annual Return
-     * application sitting in Created, awaiting someone to check CIPC
-     * and decide what to charge - see renderDetail() and
-     * handleSendQuote(). Firing this is what moves the workflow to
-     * AwaitingPayment; the client can't pay anything until it does.
+     * The staff-facing "Send Quote" / "Revise Quote" form for an Annual
+     * Return application - see renderDetail() and handleSendQuote().
+     * Shown while Created (nothing quoted yet - firing this is what
+     * moves the workflow to AwaitingPayment, and the client can't pay
+     * anything until it does) or while AwaitingPayment (already
+     * quoted, but not yet paid - firing this just overwrites the
+     * amount/notes via AnnualReturnDefinition::ACTION_REVISE_QUOTE, a
+     * same-status transition). Once payment is confirmed
+     * (Processing/Completed) this form no longer appears at all -
+     * revising a quote after the client has already paid isn't
+     * something either action supports.
      */
     private function renderQuoteForm(WorkflowInstance $workflow): void
     {
-        echo '<h3>' . esc_html__('Send Quote', 'bizupkeep-workflow') . '</h3>';
-        echo '<p>' . esc_html__(
-            'Check this filing on CIPC, then enter what to charge - the client can only pay once quoted.',
-            'bizupkeep-workflow'
+        $isRevision = $workflow->getStatus() === WorkflowStatus::AwaitingPayment;
+        $metadata = $workflow->getMetadata();
+        $currentAmount = $isRevision && is_numeric($metadata['quote_amount'] ?? null)
+            ? (float) $metadata['quote_amount']
+            : null;
+        $currentNotes = $isRevision && is_string($metadata['quote_notes'] ?? null)
+            ? $metadata['quote_notes']
+            : '';
+
+        echo '<h3>' . esc_html(
+            $isRevision ? __('Revise Quote', 'bizupkeep-workflow') : __('Send Quote', 'bizupkeep-workflow')
+        ) . '</h3>';
+        echo '<p>' . esc_html(
+            $isRevision
+                ? __('The client has not paid yet - change the amount and/or notes below.', 'bizupkeep-workflow')
+                : __(
+                    'Check this filing on CIPC, then enter what to charge - the client can only pay once quoted.',
+                    'bizupkeep-workflow'
+                )
         ) . '</p>';
         echo '<form method="post">';
         wp_nonce_field(self::QUOTE_NONCE_ACTION, self::QUOTE_NONCE_FIELD);
@@ -804,14 +852,19 @@ final class QualityReviewPage
         echo '<p><label for="bizupkeep-quote-amount">'
             . esc_html__('Quote Amount (ZAR)', 'bizupkeep-workflow') . '</label><br />'
             . '<input type="number" id="bizupkeep-quote-amount" name="quote_amount" '
-            . 'min="0.01" step="0.01" required /></p>';
+            . 'min="0.01" step="0.01" required'
+            . (null !== $currentAmount ? ' value="' . esc_attr((string) $currentAmount) . '"' : '')
+            . ' /></p>';
 
         echo '<p><label for="bizupkeep-quote-notes">'
             . esc_html__('Notes to Client (optional)', 'bizupkeep-workflow') . '</label><br />'
-            . '<textarea id="bizupkeep-quote-notes" name="quote_notes" rows="3" class="large-text"></textarea></p>';
+            . '<textarea id="bizupkeep-quote-notes" name="quote_notes" rows="3" class="large-text">'
+            . esc_textarea($currentNotes) . '</textarea></p>';
 
         echo '<p><button type="submit" class="button button-primary">'
-            . esc_html__('Send Quote', 'bizupkeep-workflow') . '</button></p>';
+            . esc_html(
+                $isRevision ? __('Revise Quote', 'bizupkeep-workflow') : __('Send Quote', 'bizupkeep-workflow')
+            ) . '</button></p>';
 
         echo '</form>';
     }
@@ -998,6 +1051,32 @@ final class QualityReviewPage
             array_map(static fn (mixed $item): string => is_string($item) ? $item : '', $value),
             static fn (string $item): bool => trim($item) !== ''
         ));
+    }
+
+    /**
+     * Normalize an Annual Return workflow's metadata into a list of
+     * {financial_year, turnover} filings, tolerating the old shape (a
+     * single flat `financial_year` int, from before an application
+     * could cover multiple years) so an application started before
+     * this display existed still shows something sensible. Mirrors
+     * AnnualReturnService::filingsFromMetadata() - kept separate since
+     * this is a read-side display concern, not a workflow-engine rule.
+     *
+     * @param array<string,mixed> $metadata
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function filingsFromMetadata(array $metadata): array
+    {
+        if (isset($metadata['filings']) && is_array($metadata['filings'])) {
+            return $metadata['filings'];
+        }
+
+        if (isset($metadata['financial_year'])) {
+            return [['financial_year' => (int) $metadata['financial_year'], 'turnover' => null]];
+        }
+
+        return [];
     }
 
     private function param(string $key): string

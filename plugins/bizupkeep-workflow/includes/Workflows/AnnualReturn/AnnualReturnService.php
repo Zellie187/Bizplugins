@@ -30,6 +30,7 @@ final class AnnualReturnService implements WorkflowTypeServiceInterface
      */
     private const ALLOWED_ACTIONS = [
         AnnualReturnDefinition::ACTION_REQUEST_PAYMENT,
+        AnnualReturnDefinition::ACTION_REVISE_QUOTE,
         AnnualReturnDefinition::ACTION_CONFIRM_PAYMENT,
         AnnualReturnDefinition::ACTION_START_QUALITY_REVIEW,
         AnnualReturnDefinition::ACTION_APPROVE,
@@ -45,29 +46,47 @@ final class AnnualReturnService implements WorkflowTypeServiceInterface
     }
 
     /**
-     * Start an Annual Return workflow for an existing company and
-     * financial year.
+     * Start an Annual Return workflow for an existing company, covering
+     * one or more outstanding financial years in a single application -
+     * a client behind on several years' filings pays for all of them
+     * together, not as separate applications.
      *
-     * @param array<string,mixed> $metadata Optional extra workflow metadata, e.g.
-     *                                       'client_notes' (free text the client entered
-     *                                       at submission, since nothing else transitions -
-     *                                       and so records a reason - until staff send a quote).
+     * @param array<int,array<string,mixed>> $filings  At least one {financial_year, turnover}
+     *                                                  pair. Turnover matters because CIPC's filing
+     *                                                  fee is turnover-banded. Untyped/unvalidated -
+     *                                                  the theme is responsible for parsing/sanitizing
+     *                                                  its own posted form data before calling this.
+     * @param array<string,mixed>            $metadata Optional extra workflow metadata, e.g.
+     *                                                  'client_notes' (free text the client entered
+     *                                                  at submission, since nothing else transitions -
+     *                                                  and so records a reason - until staff send a
+     *                                                  quote).
      *
-     * @throws ValidationException                              If that financial year already has a
-     *                                                            non-cancelled Annual Return on file.
+     * @throws ValidationException                                 If $filings is empty, or any requested
+     *                                                               financial year already has a non-cancelled
+     *                                                               Annual Return on file for this company.
      * @throws \BizHub\Companies\Exceptions\CompanyNotFoundException If the company does not exist.
      */
-    public function start(string $companyUuid, int $userId, int $financialYear, array $metadata = []): WorkflowInstance
+    public function start(string $companyUuid, int $userId, array $filings, array $metadata = []): WorkflowInstance
     {
+        if ($filings === []) {
+            throw new ValidationException(
+                'At least one financial year is required to file an Annual Return.',
+                ['filings' => 'Required.']
+            );
+        }
+
         $company = $this->companyService->getCompany($companyUuid);
 
-        if ($this->alreadyFiled($company->getUuid(), $financialYear)) {
+        $duplicateYears = $this->alreadyFiledYears($company->getUuid(), $filings);
+
+        if ($duplicateYears !== []) {
             throw new ValidationException(
                 sprintf(
-                    'An Annual Return for financial year %d has already been filed for this company.',
-                    $financialYear
+                    'An Annual Return has already been filed for this company for financial year(s): %s.',
+                    implode(', ', $duplicateYears)
                 ),
-                ['financial_year' => 'Already filed.']
+                ['filings' => 'Already filed.']
             );
         }
 
@@ -76,7 +95,7 @@ final class AnnualReturnService implements WorkflowTypeServiceInterface
             'company',
             $company->getUuid(),
             $userId,
-            array_merge(['financial_year' => $financialYear], $metadata)
+            array_merge(['filings' => $filings], $metadata)
         ));
     }
 
@@ -149,22 +168,62 @@ final class AnnualReturnService implements WorkflowTypeServiceInterface
     }
 
     /**
-     * Determine whether a non-cancelled Annual Return already exists
-     * for this company and financial year.
+     * Return whichever of the requested financial years already has a
+     * non-cancelled Annual Return on file for this company, across
+     * every one of the company's existing Annual Return workflows
+     * (each of which may itself cover several years).
+     *
+     * @param array<int,array<string,mixed>> $filings
+     *
+     * @return array<int,int>
      */
-    private function alreadyFiled(string $companyUuid, int $financialYear): bool
+    private function alreadyFiledYears(string $companyUuid, array $filings): array
     {
+        $requestedYears = array_map(
+            static fn (array $filing): int => (int) ($filing['financial_year'] ?? 0),
+            $filings
+        );
+
+        $existingYears = [];
+
         foreach ($this->workflowRepository->findForSubject('company', $companyUuid) as $workflow) {
             if (
-                $workflow->getWorkflowType() === AnnualReturnDefinition::TYPE
-                && (int) ($workflow->getMetadata()['financial_year'] ?? 0) === $financialYear
-                && $workflow->getStatus() !== WorkflowStatus::Cancelled
+                $workflow->getWorkflowType() !== AnnualReturnDefinition::TYPE
+                || $workflow->getStatus() === WorkflowStatus::Cancelled
             ) {
-                return true;
+                continue;
+            }
+
+            foreach (self::filingsFromMetadata($workflow->getMetadata()) as $filing) {
+                $existingYears[] = (int) ($filing['financial_year'] ?? 0);
             }
         }
 
-        return false;
+        return array_values(array_unique(array_intersect($requestedYears, $existingYears)));
+    }
+
+    /**
+     * Normalize a workflow's metadata into a list of {financial_year,
+     * turnover} filings, tolerating the old shape (a single flat
+     * `financial_year` int, from before an application could cover
+     * multiple years) so historical workflows are still counted
+     * correctly by alreadyFiledYears().
+     *
+     * @param array<string,mixed> $metadata
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private static function filingsFromMetadata(array $metadata): array
+    {
+        if (isset($metadata['filings']) && is_array($metadata['filings'])) {
+            return $metadata['filings'];
+        }
+
+        if (isset($metadata['financial_year'])) {
+            return [['financial_year' => (int) $metadata['financial_year'], 'turnover' => null]];
+        }
+
+        return [];
     }
 
     /**

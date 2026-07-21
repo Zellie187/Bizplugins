@@ -18,13 +18,34 @@ use BizHub\Workflow\Enums\WorkflowStatus;
  * Unlike Company Registration/Amendment, "request_payment" (Created ->
  * AwaitingPayment) is not something the client's own submission fires
  * automatically - it requires a `quote_amount` in context
- * (AnnualReturnGuard::guardRequestPayment()), and is only ever fired
+ * (AnnualReturnGuard::guardQuoteAmount()), and is only ever fired
  * from the staff-facing Quality Review screen once someone has
  * actually checked CIPC and decided what to charge. This is the
  * "staff to check annual returns on CIPC site >> send quote to
  * client" step from the workflow spec: a client sits in Created,
  * quote-less, until staff act - there's no separate "awaiting quote"
  * status because Created already means exactly that for this type.
+ *
+ * "revise_quote" is a self-loop (AwaitingPayment -> AwaitingPayment)
+ * covering the one gap that design otherwise leaves: once quoted,
+ * there was no way to correct a wrong amount without cancelling the
+ * whole application. It's guarded by the same quote_amount
+ * precondition as request_payment and simply overwrites
+ * quote_amount/quote_notes in metadata via the normal
+ * context-merge-on-transition mechanism every action already gets -
+ * available only before the client pays (AwaitingPayment -> Processing
+ * via confirm_payment is the point of no return for this).
+ *
+ * A single application can cover multiple outstanding financial years
+ * at once (metadata `filings`, a list of {financial_year, turnover}
+ * pairs - turnover matters because CIPC's filing fee is turnover-
+ * banded) rather than one workflow per year, since a client behind on
+ * several years' returns files and pays for all of them together, not
+ * as separate applications. AnnualReturnService::alreadyFiled() checks
+ * every requested year against every one of the company's existing,
+ * non-cancelled Annual Return workflows (old single-`financial_year`
+ * metadata from before this shape existed is read as a one-entry list,
+ * for backward compatibility).
  *
  * No PendingDocuments/DocumentsVerified stage: an Annual Return only
  * reaffirms already-registered director/address details rather than
@@ -42,6 +63,7 @@ final class AnnualReturnDefinition implements WorkflowDefinitionInterface
     public const TYPE = 'annual_return';
 
     public const ACTION_REQUEST_PAYMENT = 'request_payment';
+    public const ACTION_REVISE_QUOTE = 'revise_quote';
     public const ACTION_CONFIRM_PAYMENT = 'confirm_payment';
     public const ACTION_START_QUALITY_REVIEW = 'start_quality_review';
     public const ACTION_APPROVE = 'approve';
@@ -80,6 +102,11 @@ final class AnnualReturnDefinition implements WorkflowDefinitionInterface
             new TransitionRule(
                 self::ACTION_REQUEST_PAYMENT,
                 [WorkflowStatus::Created],
+                WorkflowStatus::AwaitingPayment
+            ),
+            new TransitionRule(
+                self::ACTION_REVISE_QUOTE,
+                [WorkflowStatus::AwaitingPayment],
                 WorkflowStatus::AwaitingPayment
             ),
             new TransitionRule(
