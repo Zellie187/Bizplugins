@@ -20,6 +20,13 @@ use BizHub\Workflow\Enums\WorkflowStatus;
  * available from Quality Review, per BH-WORKFLOW-SPEC-001 section 7:
  * "No arbitrary state transitions should be allowed."
  *
+ * Quality Review also has a second, recoverable exit: RejectName, for
+ * when CIPC declines every proposed company name. That moves the
+ * workflow to NamesRejected (distinct from the terminal Rejected) so
+ * the client can submit new names via ResubmitNames, which returns
+ * the workflow to Quality Review for another look - without starting
+ * a whole new application.
+ *
  * @package BizHub\Workflow\Workflows\CompanyRegistration
  */
 final class CompanyRegistrationDefinition implements WorkflowDefinitionInterface
@@ -35,6 +42,8 @@ final class CompanyRegistrationDefinition implements WorkflowDefinitionInterface
     public const ACTION_ARCHIVE = 'archive';
     public const ACTION_CANCEL = 'cancel';
     public const ACTION_REJECT = 'reject';
+    public const ACTION_REJECT_NAME = 'reject_name';
+    public const ACTION_RESUBMIT_NAMES = 'resubmit_names';
 
     /**
      * {@inheritDoc}
@@ -64,6 +73,7 @@ final class CompanyRegistrationDefinition implements WorkflowDefinitionInterface
             WorkflowStatus::AwaitingPayment,
             WorkflowStatus::Processing,
             WorkflowStatus::QualityReview,
+            WorkflowStatus::NamesRejected,
         ];
 
         $rules = [
@@ -106,6 +116,16 @@ final class CompanyRegistrationDefinition implements WorkflowDefinitionInterface
                 self::ACTION_REJECT,
                 [WorkflowStatus::QualityReview],
                 WorkflowStatus::Rejected
+            ),
+            new TransitionRule(
+                self::ACTION_REJECT_NAME,
+                [WorkflowStatus::QualityReview],
+                WorkflowStatus::NamesRejected
+            ),
+            new TransitionRule(
+                self::ACTION_RESUBMIT_NAMES,
+                [WorkflowStatus::NamesRejected],
+                WorkflowStatus::QualityReview
             ),
             new TransitionRule(
                 self::ACTION_CANCEL,

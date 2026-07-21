@@ -245,6 +245,144 @@ final class CompanyRegistrationWorkflowTest extends TestCase
         $this->assertNotEmpty($rolledBackEvents);
     }
 
+    public function test_name_rejection_loop_returns_to_quality_review_with_new_names(): void
+    {
+        $workflow = $this->manager->create(new CreateWorkflowCommand(
+            CompanyRegistrationDefinition::TYPE,
+            'company',
+            'company-uuid-7',
+            7,
+            ['proposed_names' => ['First Choice (Pty) Ltd']]
+        ));
+
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_REQUEST_DOCUMENTS,
+            7
+        ));
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_VERIFY_DOCUMENTS,
+            7,
+            '',
+            ['documents_verified' => true]
+        ));
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_REQUEST_PAYMENT,
+            7
+        ));
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_CONFIRM_PAYMENT,
+            7,
+            '',
+            ['payment_reference' => 'PMT-7']
+        ));
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_START_QUALITY_REVIEW,
+            7
+        ));
+        $this->assertSame(WorkflowStatus::QualityReview, $workflow->getStatus());
+
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_REJECT_NAME,
+            1,
+            'CIPC declined - name too similar to an existing company.'
+        ));
+        $this->assertSame(WorkflowStatus::NamesRejected, $workflow->getStatus());
+        $this->assertFalse($workflow->isTerminal());
+
+        // A rejected-names workflow can still be cancelled outright.
+        $this->assertContains(
+            CompanyRegistrationDefinition::ACTION_CANCEL,
+            (new WorkflowStateMachine())->allowedActions(new CompanyRegistrationDefinition(), $workflow->getStatus())
+        );
+
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_RESUBMIT_NAMES,
+            7,
+            'Client resubmitted new proposed names.',
+            ['proposed_names' => ['Second Choice (Pty) Ltd', 'Third Choice (Pty) Ltd']]
+        ));
+
+        $this->assertSame(WorkflowStatus::QualityReview, $workflow->getStatus());
+        $this->assertSame(
+            ['Second Choice (Pty) Ltd', 'Third Choice (Pty) Ltd'],
+            $workflow->getMetadata()['proposed_names']
+        );
+
+        // The application can now be approved normally, as if the
+        // rejection loop never happened.
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_APPROVE,
+            7,
+            '',
+            ['reviewed_by' => 'Jane Reviewer']
+        ));
+        $this->assertSame(WorkflowStatus::Completed, $workflow->getStatus());
+    }
+
+    public function test_resubmit_names_is_rejected_without_at_least_one_name(): void
+    {
+        $workflow = $this->manager->create(new CreateWorkflowCommand(
+            CompanyRegistrationDefinition::TYPE,
+            'company',
+            'company-uuid-8',
+            7
+        ));
+
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_REQUEST_DOCUMENTS,
+            7
+        ));
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_VERIFY_DOCUMENTS,
+            7,
+            '',
+            ['documents_verified' => true]
+        ));
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_REQUEST_PAYMENT,
+            7
+        ));
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_CONFIRM_PAYMENT,
+            7,
+            '',
+            ['payment_reference' => 'PMT-8']
+        ));
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_START_QUALITY_REVIEW,
+            7
+        ));
+        $workflow = $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_REJECT_NAME,
+            1,
+            'Name already taken.'
+        ));
+
+        $this->expectException(PreconditionFailedException::class);
+
+        $this->manager->transition(new TransitionWorkflowCommand(
+            $workflow->getUuid(),
+            CompanyRegistrationDefinition::ACTION_RESUBMIT_NAMES,
+            7,
+            '',
+            ['proposed_names' => []]
+        ));
+    }
+
     public function test_rollback_is_rejected_once_a_workflow_is_terminal(): void
     {
         $workflow = $this->manager->create(new CreateWorkflowCommand(

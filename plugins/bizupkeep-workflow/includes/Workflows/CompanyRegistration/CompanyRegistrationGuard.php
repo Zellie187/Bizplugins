@@ -32,6 +32,7 @@ final class CompanyRegistrationGuard implements TransitionGuardInterface
             CompanyRegistrationDefinition::ACTION_VERIFY_DOCUMENTS => $this->guardVerifyDocuments($context),
             CompanyRegistrationDefinition::ACTION_CONFIRM_PAYMENT => $this->guardConfirmPayment($context),
             CompanyRegistrationDefinition::ACTION_APPROVE => $this->guardApprove($context),
+            CompanyRegistrationDefinition::ACTION_RESUBMIT_NAMES => $this->guardResubmitNames($context),
             default => null,
         };
     }
@@ -72,6 +73,36 @@ final class CompanyRegistrationGuard implements TransitionGuardInterface
         if (! is_string($reviewer) || trim($reviewer) === '') {
             throw new PreconditionFailedException(
                 'Quality review approval must record who performed the review.'
+            );
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $context
+     */
+    private function guardResubmitNames(array $context): void
+    {
+        $names = $context['proposed_names'] ?? [];
+
+        if (! is_array($names)) {
+            throw new PreconditionFailedException(
+                'At least one proposed company name is required to resubmit.'
+            );
+        }
+
+        $hasNonBlankName = false;
+
+        foreach ($names as $name) {
+            if (is_string($name) && trim($name) !== '') {
+                $hasNonBlankName = true;
+
+                break;
+            }
+        }
+
+        if (! $hasNonBlankName) {
+            throw new PreconditionFailedException(
+                'At least one proposed company name is required to resubmit.'
             );
         }
     }

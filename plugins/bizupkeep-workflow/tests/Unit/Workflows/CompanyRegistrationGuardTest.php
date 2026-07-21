@@ -102,4 +102,40 @@ final class CompanyRegistrationGuardTest extends TestCase
 
         $this->addToAssertionCount(1);
     }
+
+    public function test_resubmit_names_requires_at_least_one_proposed_name(): void
+    {
+        $this->expectException(PreconditionFailedException::class);
+
+        $this->guard->guard(
+            $this->workflow,
+            WorkflowStatus::QualityReview,
+            CompanyRegistrationDefinition::ACTION_RESUBMIT_NAMES,
+            ['proposed_names' => []]
+        );
+    }
+
+    public function test_resubmit_names_rejects_all_blank_names(): void
+    {
+        $this->expectException(PreconditionFailedException::class);
+
+        $this->guard->guard(
+            $this->workflow,
+            WorkflowStatus::QualityReview,
+            CompanyRegistrationDefinition::ACTION_RESUBMIT_NAMES,
+            ['proposed_names' => ['', '  ']]
+        );
+    }
+
+    public function test_resubmit_names_succeeds_with_at_least_one_name(): void
+    {
+        $this->guard->guard(
+            $this->workflow,
+            WorkflowStatus::QualityReview,
+            CompanyRegistrationDefinition::ACTION_RESUBMIT_NAMES,
+            ['proposed_names' => ['New Name (Pty) Ltd']]
+        );
+
+        $this->addToAssertionCount(1);
+    }
 }

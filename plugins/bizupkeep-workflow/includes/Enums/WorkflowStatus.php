@@ -11,7 +11,11 @@ namespace BizHub\Workflow\Enums;
  * by BH-WORKFLOW-SPEC-001 section 7. "Cancelled" and "Rejected" are
  * terminal exception states reachable from any non-terminal status,
  * satisfying the spec's rollback/completion-criteria requirements for
- * workflows that do not reach a successful conclusion.
+ * workflows that do not reach a successful conclusion. "NamesRejected"
+ * is a non-terminal exception state, specific to Company Registration:
+ * CIPC declining a proposed company name is recoverable (the client
+ * submits new names and the workflow returns to QualityReview), unlike
+ * a plain "Rejected" outcome.
  *
  * @package BizHub\Workflow\Enums
  */
@@ -27,6 +31,7 @@ enum WorkflowStatus: string
     case Archived = 'archived';
     case Cancelled = 'cancelled';
     case Rejected = 'rejected';
+    case NamesRejected = 'names_rejected';
 
     /**
      * Determine whether this status is a terminal state, i.e. no
@@ -65,6 +70,7 @@ enum WorkflowStatus: string
             self::Archived => __('Archived', 'bizupkeep-workflow'),
             self::Cancelled => __('Cancelled', 'bizupkeep-workflow'),
             self::Rejected => __('Rejected', 'bizupkeep-workflow'),
+            self::NamesRejected => __('Names Rejected - Awaiting Resubmission', 'bizupkeep-workflow'),
         };
     }
 }

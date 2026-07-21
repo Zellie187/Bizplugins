@@ -42,6 +42,8 @@ final class CompanyRegistrationService implements WorkflowTypeServiceInterface
         CompanyRegistrationDefinition::ACTION_ARCHIVE,
         CompanyRegistrationDefinition::ACTION_CANCEL,
         CompanyRegistrationDefinition::ACTION_REJECT,
+        CompanyRegistrationDefinition::ACTION_REJECT_NAME,
+        CompanyRegistrationDefinition::ACTION_RESUBMIT_NAMES,
     ];
 
     public function __construct(

@@ -2,6 +2,16 @@
 
 All notable changes to BizUpKeep Workflow are documented in this file.
 
+## [1.3.0] - 2026-07-21
+
+### Added
+
+- **Company Registration name-rejection loop**: a new non-terminal `WorkflowStatus::NamesRejected`, reachable from `QualityReview` via a new `reject_name` action, distinct from the existing terminal `reject`. A new `resubmit_names` action moves the workflow back to `QualityReview`, overwriting `proposed_names` in its metadata with whatever the client submitted - so when CIPC declines every proposed company name, staff can send the application back for new names without the client having to start a whole new application.
+- Quality Review's review form now shows a second reject button ("Reject - Name Not Approved") alongside the existing "Reject", for Company Registration only (Company Amendment and Annual Return still only get the plain terminal Reject).
+- `CompanyRegistrationGuard` gained a `resubmit_names` precondition: at least one non-blank proposed name is required in context.
+- `WorkflowStatus::NamesRejected` is included in Company Registration's `cancel`-eligible statuses, consistent with every other non-terminal status - a client can still withdraw an application while waiting to resubmit names.
+- 5 new PHPUnit tests (3 guard, 2 integration, covering the full reject_name -> resubmit_names -> approve loop and the resubmit precondition), 55 total (up from 50); PHPStan and PHPCS clean.
+
 ## [1.2.0] - 2026-07-21
 
 ### Added

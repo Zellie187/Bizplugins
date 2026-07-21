@@ -18,6 +18,7 @@ final class WorkflowStatusTest extends TestCase
         $this->assertFalse(WorkflowStatus::Created->isTerminal());
         $this->assertFalse(WorkflowStatus::Processing->isTerminal());
         $this->assertFalse(WorkflowStatus::Completed->isTerminal());
+        $this->assertFalse(WorkflowStatus::NamesRejected->isTerminal());
     }
 
     public function test_only_completed_and_archived_are_successful(): void

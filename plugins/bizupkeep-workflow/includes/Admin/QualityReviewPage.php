@@ -59,6 +59,8 @@ final class QualityReviewPage
 
     private const ACTION_REJECT = 'reject';
 
+    private const ACTION_REJECT_NAME = 'reject_name';
+
     /**
      * The workflow types this screen reviews, in display order.
      *
@@ -81,6 +83,22 @@ final class QualityReviewPage
     private const REJECTABLE_TYPES = [
         CompanyRegistrationDefinition::TYPE,
         CompanyAmendmentDefinition::TYPE,
+    ];
+
+    /**
+     * "Reject - Name Not Approved" is a second, recoverable rejection
+     * path distinct from the plain Reject above: it's specifically for
+     * when CIPC declines the proposed company name(s), which sends the
+     * workflow to NamesRejected instead of the terminal Rejected, so
+     * the client can submit new names and the application returns to
+     * this queue automatically. Company Registration only - CIPC name
+     * approval only applies to a brand-new company name, not an
+     * Amendment or Annual Return.
+     *
+     * @var array<int,string>
+     */
+    private const NAME_REJECTABLE_TYPES = [
+        CompanyRegistrationDefinition::TYPE,
     ];
 
     /**
@@ -183,7 +201,13 @@ final class QualityReviewPage
             return ['error', __('This application type cannot be rejected.', 'bizupkeep-workflow')];
         }
 
-        if ($action === self::ACTION_REJECT && trim($reason) === '') {
+        $isRejectName = $action === self::ACTION_REJECT_NAME;
+
+        if ($isRejectName && ! in_array($workflow->getWorkflowType(), self::NAME_REJECTABLE_TYPES, true)) {
+            return ['error', __('This application type has no proposed name to reject.', 'bizupkeep-workflow')];
+        }
+
+        if (in_array($action, [self::ACTION_REJECT, self::ACTION_REJECT_NAME], true) && trim($reason) === '') {
             return ['error', __('A reason is required to reject an application.', 'bizupkeep-workflow')];
         }
 
@@ -195,9 +219,18 @@ final class QualityReviewPage
             $this->serviceFor($workflow->getWorkflowType())
                 ->performAction($workflowUuid, $action, $userId, $reason, $context);
 
-            return ['success', $action === self::ACTION_APPROVE
-                ? __('Application approved.', 'bizupkeep-workflow')
-                : __('Application rejected.', 'bizupkeep-workflow')];
+            $message = __('Application rejected.', 'bizupkeep-workflow');
+
+            if ($action === self::ACTION_APPROVE) {
+                $message = __('Application approved.', 'bizupkeep-workflow');
+            } elseif ($isRejectName) {
+                $message = __(
+                    'Names rejected - the client has been asked to submit new options.',
+                    'bizupkeep-workflow'
+                );
+            }
+
+            return ['success', $message];
         } catch (ValidationException | PreconditionFailedException | InvalidTransitionException $exception) {
             return ['error', $exception->getMessage()];
         } catch (WorkflowNotFoundException $exception) {
@@ -469,6 +502,7 @@ final class QualityReviewPage
     private function renderReviewForm(WorkflowInstance $workflow): void
     {
         $canReject = in_array($workflow->getWorkflowType(), self::REJECTABLE_TYPES, true);
+        $canRejectName = in_array($workflow->getWorkflowType(), self::NAME_REJECTABLE_TYPES, true);
 
         echo '<h3>' . esc_html__('Decision', 'bizupkeep-workflow') . '</h3>';
         echo '<form method="post">';
@@ -476,7 +510,7 @@ final class QualityReviewPage
         echo '<input type="hidden" name="workflow" value="' . esc_attr($workflow->getUuid()) . '" />';
 
         echo '<p><label for="bizupkeep-reason">' . esc_html(
-            $canReject
+            $canReject || $canRejectName
                 ? __('Notes (required to reject)', 'bizupkeep-workflow')
                 : __('Notes (optional)', 'bizupkeep-workflow')
         ) . '</label><br />'
@@ -486,6 +520,12 @@ final class QualityReviewPage
             . '<button type="submit" name="bizupkeep_action" value="'
             . esc_attr(self::ACTION_APPROVE) . '" class="button button-primary">'
             . esc_html__('Approve', 'bizupkeep-workflow') . '</button> ';
+
+        if ($canRejectName) {
+            echo '<button type="submit" name="bizupkeep_action" value="'
+                . esc_attr(self::ACTION_REJECT_NAME) . '" class="button">'
+                . esc_html__('Reject - Name Not Approved', 'bizupkeep-workflow') . '</button> ';
+        }
 
         if ($canReject) {
             echo '<button type="submit" name="bizupkeep_action" value="'

@@ -21,6 +21,12 @@ See `CHANGELOG.md` for the full 1.0.0 entry and `docs/workflows/Company-Registra
 
 **Still not built for Company Amendment/Annual Return**: REST controllers/routes (the theme's intake calls the services directly via the shared container, the same pattern Company Registration's intake always used). Also still not built for any type: automatically applying an *approved* Company Amendment's requested changes to the live Company/Director records - approval today is only a status transition, same as it's always been for Company Registration.
 
+## Shipped in 1.3.0
+
+- **Company Registration's name-rejection loop**: when CIPC declines every proposed company name, staff now have a second, recoverable rejection path (`reject_name`, distinct from the existing terminal `reject`) that sends the workflow to a new `NamesRejected` status instead of ending it. The client submits new names from their My Applications page, which fires `resubmit_names` and returns the workflow to `QualityReview` - closing the gap Company Registration's original design left open (see `docs/workflows/Company-Registration.md`'s "if name rejected, request new names" requirement, not addressed by 1.0.0's plain terminal Reject). See `CHANGELOG.md` for the full detail.
+
+**Still not built**: the equivalent loop for Company Amendment's name-change branch (an amendment can also propose a new company name that CIPC could decline) - out of scope for this round, which followed the original spec's wording of this requirement under Company Registration specifically.
+
 ## Next milestones: the remaining specified workflow types
 
 `docs/workflows/` contains implementation-ready design specifications (Input/Validation/Preconditions/Business Rules/State Changes/Events/Notifications/Rollback/Completion Criteria/Audit Logging, per `docs/development/Workflow-Standards.md`) for further South African compliance workflow types not yet built:
