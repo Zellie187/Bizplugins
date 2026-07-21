@@ -27,6 +27,12 @@ See `CHANGELOG.md` for the full 1.0.0 entry and `docs/workflows/Company-Registra
 
 **Still not built**: the equivalent loop for Company Amendment's name-change branch (an amendment can also propose a new company name that CIPC could decline) - out of scope for this round, which followed the original spec's wording of this requirement under Company Registration specifically.
 
+## Shipped in 1.4.0
+
+- **Staff-side document upload**: Quality Review's detail view now renders for an application in any status (not just `QualityReview`), and gained an upload form letting staff attach a document - in any category - to the application's company. Since My Documents already lists every document for a company regardless of category, this is what makes "download registration/amendment documents from the portal" (from the original workflow spec) work end-to-end for the first time - staff upload the final CIPC certificate, the client sees it appear on their own portal automatically. The "Workflows" admin list also gained a "View" link per row, since it previously had no way to navigate into a workflow's detail at all. See `CHANGELOG.md` for detail.
+
+**Still not built**: a fuller admin case-management view beyond this - changing a workflow's status directly (not just via Approve/Reject/the name-rejection loop), bulk actions, or a dashboard-style overview rather than a flat list. Also still no way for staff to delete/replace a single wrongly-uploaded document version (`DocumentService::deleteDocument()` removes the whole document and all its versions; there's no single-version delete or "add a corrective version" UI yet).
+
 ## Next milestones: the remaining specified workflow types
 
 `docs/workflows/` contains implementation-ready design specifications (Input/Validation/Preconditions/Business Rules/State Changes/Events/Notifications/Rollback/Completion Criteria/Audit Logging, per `docs/development/Workflow-Standards.md`) for further South African compliance workflow types not yet built:

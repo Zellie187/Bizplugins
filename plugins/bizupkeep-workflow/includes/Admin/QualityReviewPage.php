@@ -8,6 +8,7 @@ use BizHub\ClientPortal\Contracts\ClientRepositoryInterface;
 use BizHub\Companies\Contracts\CompanyServiceInterface;
 use BizHub\Companies\Entities\Company;
 use BizHub\Companies\Exceptions\CompanyNotFoundException;
+use BizHub\Documents\Entities\DocumentCategory;
 use BizHub\Documents\Exceptions\DocumentNotFoundException;
 use BizHub\Documents\Services\DocumentService;
 use BizHub\Security\Authorization\Contracts\AuthorizationServiceInterface;
@@ -54,6 +55,27 @@ final class QualityReviewPage
     private const NONCE_ACTION = 'bizupkeep_workflow_quality_review';
 
     private const NONCE_FIELD = 'bizupkeep_workflow_quality_review_nonce';
+
+    private const UPLOAD_NONCE_ACTION = 'bizupkeep_workflow_staff_upload';
+
+    private const UPLOAD_NONCE_FIELD = 'bizupkeep_workflow_staff_upload_nonce';
+
+    /**
+     * Matches the client-facing upload form's own allowed types
+     * (functions.php's bizupkeep_child_validate_uploaded_file()) - a
+     * staff upload is just as likely to be a scanned certificate or
+     * photo as anything a client submits.
+     *
+     * @var array<int,string>
+     */
+    private const ALLOWED_UPLOAD_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png'];
+
+    /**
+     * Larger than the client-facing form's 5MB cap - a staff-uploaded
+     * CIPC certificate or multi-page filing scanned as one PDF is
+     * plausibly bigger than a single ID photo or POA.
+     */
+    private const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
     private const ACTION_APPROVE = 'approve';
 
@@ -141,7 +163,7 @@ final class QualityReviewPage
             return;
         }
 
-        $notice = $this->handleSubmission($userId);
+        $notice = $this->handleDocumentUpload($userId) ?? $this->handleSubmission($userId);
 
         echo '<div class="wrap"><h1>' . esc_html__('Quality Review', 'bizupkeep-workflow') . '</h1>';
 
@@ -239,6 +261,137 @@ final class QualityReviewPage
     }
 
     /**
+     * Handle a staff document-upload POST submission (a separate form
+     * from the Approve/Reject one, gated by its own nonce/marker field
+     * so the two never collide), returning a [notice-type, message]
+     * pair to display, or null if nothing was submitted. Lets staff
+     * attach a document to the application's company - e.g. the final
+     * CIPC certificate once a Registration/Amendment is Completed -
+     * which then appears on the client's My Documents page
+     * automatically, since that page lists every document for the
+     * company regardless of category.
+     *
+     * @return array{0:string,1:string}|null
+     */
+    private function handleDocumentUpload(int $userId): ?array
+    {
+        if (! isset($_POST[self::UPLOAD_NONCE_FIELD])) {
+            return null;
+        }
+
+        $nonce = sanitize_text_field(wp_unslash($_POST[self::UPLOAD_NONCE_FIELD]));
+
+        if (! wp_verify_nonce($nonce, self::UPLOAD_NONCE_ACTION)) {
+            return ['error', __('Security check failed. Please try again.', 'bizupkeep-workflow')];
+        }
+
+        if (! $this->authorization->can($userId, Capabilities::WORKFLOW_TRANSITION)) {
+            return ['error', __('You are not permitted to upload documents.', 'bizupkeep-workflow')];
+        }
+
+        $workflowUuid = isset($_POST['workflow']) ? sanitize_text_field(wp_unslash($_POST['workflow'])) : '';
+        $categoryRaw = isset($_POST['category']) ? sanitize_text_field(wp_unslash($_POST['category'])) : '';
+
+        $workflow = $this->workflows->find($workflowUuid);
+
+        if ($workflow === null || ! in_array($workflow->getWorkflowType(), self::REVIEWED_TYPES, true)) {
+            return ['error', __('That application could not be found.', 'bizupkeep-workflow')];
+        }
+
+        $category = null;
+
+        foreach (DocumentCategory::cases() as $case) {
+            if ($case->value === $categoryRaw) {
+                $category = $case;
+
+                break;
+            }
+        }
+
+        if ($category === null) {
+            return ['error', __('Please choose a document type.', 'bizupkeep-workflow')];
+        }
+
+        try {
+            $company = $this->companies->getCompany($workflow->getSubjectUuid());
+        } catch (CompanyNotFoundException) {
+            return ['error', __('That application could not be found.', 'bizupkeep-workflow')];
+        }
+
+        $file = $this->validateUploadedFile();
+
+        if ($file === null) {
+            return ['error', __(
+                'That upload could not be processed - please check the file (PDF, JPG or PNG, max 10MB) and try again.',
+                'bizupkeep-workflow'
+            )];
+        }
+
+        try {
+            $this->documents->uploadDocument(
+                'company',
+                $company->getUuid(),
+                $file['name'],
+                $category,
+                $file['tmp_name'],
+                $file['name'],
+                $userId
+            );
+        } catch (\Throwable $exception) {
+            return ['error', __(
+                'That upload could not be processed - please check the file (PDF, JPG or PNG, max 10MB) and try again.',
+                'bizupkeep-workflow'
+            )];
+        }
+
+        return ['success', __('Document uploaded.', 'bizupkeep-workflow')];
+    }
+
+    /**
+     * Read, validate, and return the uploaded file's PHP $_FILES entry,
+     * or null if it's missing, failed, too large, or not an allowed
+     * type. Mirrors the client-facing upload form's own validation
+     * (functions.php's bizupkeep_child_validate_uploaded_file()) -
+     * DocumentService/DocumentStorageService enforce neither size nor
+     * mime type themselves.
+     *
+     * @return array{name:string,tmp_name:string}|null
+     */
+    private function validateUploadedFile(): ?array
+    {
+        if (empty($_FILES['document']) || ! is_array($_FILES['document'])) {
+            return null;
+        }
+
+        $file = $_FILES['document'];
+
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return null;
+        }
+
+        $tmpName = is_string($file['tmp_name'] ?? null) ? $file['tmp_name'] : '';
+
+        if ($tmpName === '' || ! is_uploaded_file($tmpName)) {
+            return null;
+        }
+
+        $size = (int) ($file['size'] ?? 0);
+
+        if ($size <= 0 || $size > self::MAX_UPLOAD_BYTES) {
+            return null;
+        }
+
+        $name = is_string($file['name'] ?? null) ? $file['name'] : '';
+        $extension = strtolower((string) pathinfo($name, PATHINFO_EXTENSION));
+
+        if (! in_array($extension, self::ALLOWED_UPLOAD_EXTENSIONS, true)) {
+            return null;
+        }
+
+        return ['name' => $name, 'tmp_name' => $tmpName];
+    }
+
+    /**
      * Render the queue of applications awaiting quality review.
      */
     private function renderQueue(): void
@@ -289,9 +442,16 @@ final class QualityReviewPage
     }
 
     /**
-     * Render a single application's review detail: company info,
-     * type-specific request details, uploaded documents, and the
-     * Approve/Reject form.
+     * Render a single application's detail: company info, type-specific
+     * request details, uploaded documents (plus a staff upload form),
+     * and - only while the application is actually awaiting quality
+     * review - the Approve/Reject decision form. Unlike before staff
+     * document upload existed, this now renders fully regardless of
+     * the workflow's current status: staff need to reach a Completed
+     * application's documents just as often as a QualityReview one
+     * (e.g. to upload the final CIPC certificate after approval), and
+     * the decision form is the only part that's genuinely specific to
+     * the review stage.
      */
     private function renderDetail(string $workflowUuid): void
     {
@@ -307,16 +467,6 @@ final class QualityReviewPage
         echo '<p><a href="' . esc_url($backUrl) . '">&larr; '
             . esc_html__('Back to queue', 'bizupkeep-workflow') . '</a></p>';
 
-        if ($workflow->getStatus() !== WorkflowStatus::QualityReview) {
-            echo '<div class="notice notice-warning"><p>' . esc_html(sprintf(
-                /* translators: %s: workflow status label */
-                __('This application is no longer awaiting quality review (current status: %s).', 'bizupkeep-workflow'),
-                $workflow->getStatus()->label()
-            )) . '</p></div>';
-
-            return;
-        }
-
         $company = null;
 
         try {
@@ -326,7 +476,8 @@ final class QualityReviewPage
         }
 
         echo '<p><span class="bizupkeep-workflow-type-badge">'
-            . esc_html($this->typeLabel($workflow->getWorkflowType())) . '</span></p>';
+            . esc_html($this->typeLabel($workflow->getWorkflowType())) . '</span> '
+            . '<span class="bizupkeep-status-pill">' . esc_html($workflow->getStatus()->label()) . '</span></p>';
         $companyLabel = $company?->getCompanyName() ?? __('(company record missing)', 'bizupkeep-workflow');
         echo '<h2>' . esc_html($companyLabel) . '</h2>';
 
@@ -334,9 +485,12 @@ final class QualityReviewPage
             $this->renderCompanyDetails($company);
             $this->renderTypeSpecificDetails($workflow);
             $this->renderDocuments($workflow, $company);
+            $this->renderUploadForm($workflow);
         }
 
-        $this->renderReviewForm($workflow);
+        if ($workflow->getStatus() === WorkflowStatus::QualityReview) {
+            $this->renderReviewForm($workflow);
+        }
     }
 
     /**
@@ -497,6 +651,42 @@ final class QualityReviewPage
         }
 
         echo '</ul>';
+    }
+
+    /**
+     * A staff-facing upload form, attaching a document to the
+     * application's company under whatever category is chosen (e.g.
+     * the final CIPC registration/amendment certificate once
+     * Completed). Available regardless of the workflow's current
+     * status - see renderDetail().
+     */
+    private function renderUploadForm(WorkflowInstance $workflow): void
+    {
+        echo '<h3>' . esc_html__('Upload a Document', 'bizupkeep-workflow') . '</h3>';
+        echo '<form method="post" enctype="multipart/form-data">';
+        wp_nonce_field(self::UPLOAD_NONCE_ACTION, self::UPLOAD_NONCE_FIELD);
+        echo '<input type="hidden" name="workflow" value="' . esc_attr($workflow->getUuid()) . '" />';
+
+        echo '<p><label for="bizupkeep-upload-category">'
+            . esc_html__('Document Type', 'bizupkeep-workflow') . '</label><br />';
+        echo '<select id="bizupkeep-upload-category" name="category" required>';
+        echo '<option value="">' . esc_html__('Select an option', 'bizupkeep-workflow') . '</option>';
+
+        foreach (DocumentCategory::cases() as $case) {
+            echo '<option value="' . esc_attr($case->value) . '">' . esc_html($case->label()) . '</option>';
+        }
+
+        echo '</select></p>';
+
+        echo '<p><label for="bizupkeep-upload-file">'
+            . esc_html__('File (PDF, JPG or PNG, max 10MB)', 'bizupkeep-workflow') . '</label><br />'
+            . '<input type="file" id="bizupkeep-upload-file" name="document" '
+            . 'accept=".pdf,.jpg,.jpeg,.png" required /></p>';
+
+        echo '<p><button type="submit" class="button button-primary">'
+            . esc_html__('Upload', 'bizupkeep-workflow') . '</button></p>';
+
+        echo '</form>';
     }
 
     private function renderReviewForm(WorkflowInstance $workflow): void

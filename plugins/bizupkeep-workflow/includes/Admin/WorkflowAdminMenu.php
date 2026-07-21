@@ -87,15 +87,21 @@ final class WorkflowAdminMenu
             . '<th>' . esc_html__('Status', 'bizupkeep-workflow') . '</th>'
             . '<th>' . esc_html__('Created', 'bizupkeep-workflow') . '</th>'
             . '<th>' . esc_html__('Updated', 'bizupkeep-workflow') . '</th>'
+            . '<th></th>'
             . '</tr></thead><tbody>';
 
         if ($summaries === []) {
-            echo '<tr><td colspan="6">'
+            echo '<tr><td colspan="7">'
                 . esc_html__('No workflows yet.', 'bizupkeep-workflow')
                 . '</td></tr>';
         }
 
         foreach ($summaries as $summary) {
+            $viewUrl = add_query_arg(
+                ['page' => QualityReviewPage::SLUG, 'workflow' => $summary->uuid],
+                admin_url('admin.php')
+            );
+
             echo '<tr>';
             echo '<td>' . esc_html(self::typeLabel($summary->workflowType)) . '</td>';
             echo '<td>' . esc_html($summary->uuid) . '</td>';
@@ -103,6 +109,8 @@ final class WorkflowAdminMenu
             echo '<td>' . esc_html($summary->status->label()) . '</td>';
             echo '<td>' . esc_html($summary->createdAt->format('Y-m-d H:i')) . '</td>';
             echo '<td>' . esc_html($summary->updatedAt?->format('Y-m-d H:i') ?? '') . '</td>';
+            echo '<td><a class="button" href="' . esc_url($viewUrl) . '">'
+                . esc_html__('View', 'bizupkeep-workflow') . '</a></td>';
             echo '</tr>';
         }
 

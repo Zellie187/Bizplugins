@@ -2,6 +2,16 @@
 
 All notable changes to BizUpKeep Workflow are documented in this file.
 
+## [1.4.0] - 2026-07-21
+
+### Added
+
+- **Staff-side document upload**: Quality Review's detail view (`?page=bizhub-quality-review&workflow=...`) now renders regardless of the workflow's current status - previously it only rendered anything beyond a "no longer awaiting review" notice while the application was actually in `QualityReview`, meaning staff had no way to reach a Completed (or any other status) application's company/document details at all. The Approve/Reject decision form is still shown only while the status is `QualityReview`; everything else (company details, requested changes, submitted documents, and the new upload form) now renders for any status.
+- A new upload form on that same page lets staff attach a document, in any `DocumentCategory`, to the application's company - e.g. the final CIPC registration/amendment certificate once approved. It reuses `DocumentService::uploadDocument()` directly (own nonce/capability check, gated by the existing `Capabilities::WORKFLOW_TRANSITION`, 10MB/PDF-JPG-PNG validation mirroring the client-facing upload form's own limits). No client-side change was needed: My Documents already lists every document for a company regardless of category, so a staff upload appears there automatically - this is what makes "download registration/amendment documents from the portal" (from the original workflow spec) actually work end-to-end for the first time.
+- The "Workflows" admin list (`WorkflowAdminMenu`) gained a "View" link per row, linking into Quality Review's detail view - previously that list had no links anywhere, so a non-QualityReview workflow's detail page (and now its document upload form) was unreachable except by typing the UUID into the URL by hand.
+- Verified end-to-end: uploaded a document to a Completed Company Registration application from the admin side and confirmed it appeared correctly on the client's My Documents page with the right category; confirmed a forged nonce is rejected.
+- 55 passing PHPUnit tests (unchanged - this is UI-layer work with no new state-machine behavior), PHPStan clean.
+
 ## [1.3.0] - 2026-07-21
 
 ### Added
