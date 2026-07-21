@@ -60,6 +60,10 @@ final class QualityReviewPage
 
     private const UPLOAD_NONCE_FIELD = 'bizupkeep_workflow_staff_upload_nonce';
 
+    private const QUOTE_NONCE_ACTION = 'bizupkeep_workflow_send_quote';
+
+    private const QUOTE_NONCE_FIELD = 'bizupkeep_workflow_send_quote_nonce';
+
     /**
      * Matches the client-facing upload form's own allowed types
      * (functions.php's bizupkeep_child_validate_uploaded_file()) - a
@@ -163,7 +167,9 @@ final class QualityReviewPage
             return;
         }
 
-        $notice = $this->handleDocumentUpload($userId) ?? $this->handleSubmission($userId);
+        $notice = $this->handleDocumentUpload($userId)
+            ?? $this->handleSendQuote($userId)
+            ?? $this->handleSubmission($userId);
 
         echo '<div class="wrap"><h1>' . esc_html__('Quality Review', 'bizupkeep-workflow') . '</h1>';
 
@@ -392,6 +398,68 @@ final class QualityReviewPage
     }
 
     /**
+     * Handle the staff "Send Quote" POST submission for an Annual
+     * Return application still sitting in Created - the "staff to
+     * check annual returns on CIPC site >> send quote to client" step
+     * from the workflow spec. Fires `request_payment` with the entered
+     * amount (and optional notes) as context, which
+     * AnnualReturnGuard::guardRequestPayment() requires before it will
+     * allow the Created -> AwaitingPayment transition at all.
+     *
+     * @return array{0:string,1:string}|null
+     */
+    private function handleSendQuote(int $userId): ?array
+    {
+        if (! isset($_POST[self::QUOTE_NONCE_FIELD])) {
+            return null;
+        }
+
+        $nonce = sanitize_text_field(wp_unslash($_POST[self::QUOTE_NONCE_FIELD]));
+
+        if (! wp_verify_nonce($nonce, self::QUOTE_NONCE_ACTION)) {
+            return ['error', __('Security check failed. Please try again.', 'bizupkeep-workflow')];
+        }
+
+        if (! $this->authorization->can($userId, Capabilities::WORKFLOW_TRANSITION)) {
+            return ['error', __('You are not permitted to send a quote.', 'bizupkeep-workflow')];
+        }
+
+        $workflowUuid = isset($_POST['workflow']) ? sanitize_text_field(wp_unslash($_POST['workflow'])) : '';
+        $amountRaw = isset($_POST['quote_amount']) ? sanitize_text_field(wp_unslash($_POST['quote_amount'])) : '';
+        $notes = isset($_POST['quote_notes']) ? sanitize_textarea_field(wp_unslash($_POST['quote_notes'])) : '';
+
+        $workflow = $this->workflows->find($workflowUuid);
+
+        if ($workflow === null || $workflow->getWorkflowType() !== AnnualReturnDefinition::TYPE) {
+            return ['error', __('That application could not be found.', 'bizupkeep-workflow')];
+        }
+
+        if (! is_numeric($amountRaw) || (float) $amountRaw <= 0.0) {
+            return ['error', __('Please enter a quote amount greater than zero.', 'bizupkeep-workflow')];
+        }
+
+        try {
+            $this->annualReturns->performAction(
+                $workflowUuid,
+                AnnualReturnDefinition::ACTION_REQUEST_PAYMENT,
+                $userId,
+                sprintf(
+                    /* translators: %s: currently logged-in staff member's display name */
+                    __('Quote sent by %s.', 'bizupkeep-workflow'),
+                    $this->currentUserLabel()
+                ),
+                ['quote_amount' => (float) $amountRaw, 'quote_notes' => $notes]
+            );
+
+            return ['success', __('Quote sent - the client can now pay.', 'bizupkeep-workflow')];
+        } catch (ValidationException | PreconditionFailedException | InvalidTransitionException $exception) {
+            return ['error', $exception->getMessage()];
+        } catch (WorkflowNotFoundException $exception) {
+            return ['error', __('That application could not be found.', 'bizupkeep-workflow')];
+        }
+    }
+
+    /**
      * Render the queue of applications awaiting quality review.
      */
     private function renderQueue(): void
@@ -488,6 +556,13 @@ final class QualityReviewPage
             $this->renderUploadForm($workflow);
         }
 
+        if (
+            $workflow->getWorkflowType() === AnnualReturnDefinition::TYPE
+            && $workflow->getStatus() === WorkflowStatus::Created
+        ) {
+            $this->renderQuoteForm($workflow);
+        }
+
         if ($workflow->getStatus() === WorkflowStatus::QualityReview) {
             $this->renderReviewForm($workflow);
         }
@@ -540,6 +615,25 @@ final class QualityReviewPage
                 __('Financial Year', 'bizupkeep-workflow'),
                 (string) (int) ($metadata['financial_year'] ?? 0)
             );
+
+            $clientNotes = is_string($metadata['client_notes'] ?? null) ? $metadata['client_notes'] : '';
+
+            if (trim($clientNotes) !== '') {
+                $this->row(__('Client Notes', 'bizupkeep-workflow'), $clientNotes);
+            }
+
+            $quoteAmount = $metadata['quote_amount'] ?? null;
+
+            if (is_numeric($quoteAmount) && (float) $quoteAmount > 0.0) {
+                $this->row(__('Quoted Amount', 'bizupkeep-workflow'), number_format((float) $quoteAmount, 2));
+
+                $quoteNotes = is_string($metadata['quote_notes'] ?? null) ? $metadata['quote_notes'] : '';
+
+                if (trim($quoteNotes) !== '') {
+                    $this->row(__('Quote Notes', 'bizupkeep-workflow'), $quoteNotes);
+                }
+            }
+
             echo '</tbody></table>';
 
             return;
@@ -685,6 +779,39 @@ final class QualityReviewPage
 
         echo '<p><button type="submit" class="button button-primary">'
             . esc_html__('Upload', 'bizupkeep-workflow') . '</button></p>';
+
+        echo '</form>';
+    }
+
+    /**
+     * The staff-facing "Send Quote" form for an Annual Return
+     * application sitting in Created, awaiting someone to check CIPC
+     * and decide what to charge - see renderDetail() and
+     * handleSendQuote(). Firing this is what moves the workflow to
+     * AwaitingPayment; the client can't pay anything until it does.
+     */
+    private function renderQuoteForm(WorkflowInstance $workflow): void
+    {
+        echo '<h3>' . esc_html__('Send Quote', 'bizupkeep-workflow') . '</h3>';
+        echo '<p>' . esc_html__(
+            'Check this filing on CIPC, then enter what to charge - the client can only pay once quoted.',
+            'bizupkeep-workflow'
+        ) . '</p>';
+        echo '<form method="post">';
+        wp_nonce_field(self::QUOTE_NONCE_ACTION, self::QUOTE_NONCE_FIELD);
+        echo '<input type="hidden" name="workflow" value="' . esc_attr($workflow->getUuid()) . '" />';
+
+        echo '<p><label for="bizupkeep-quote-amount">'
+            . esc_html__('Quote Amount (ZAR)', 'bizupkeep-workflow') . '</label><br />'
+            . '<input type="number" id="bizupkeep-quote-amount" name="quote_amount" '
+            . 'min="0.01" step="0.01" required /></p>';
+
+        echo '<p><label for="bizupkeep-quote-notes">'
+            . esc_html__('Notes to Client (optional)', 'bizupkeep-workflow') . '</label><br />'
+            . '<textarea id="bizupkeep-quote-notes" name="quote_notes" rows="3" class="large-text"></textarea></p>';
+
+        echo '<p><button type="submit" class="button button-primary">'
+            . esc_html__('Send Quote', 'bizupkeep-workflow') . '</button></p>';
 
         echo '</form>';
     }

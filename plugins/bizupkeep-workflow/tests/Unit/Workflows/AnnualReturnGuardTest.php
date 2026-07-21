@@ -32,6 +32,54 @@ final class AnnualReturnGuardTest extends TestCase
         );
     }
 
+    public function test_request_payment_requires_a_positive_quote_amount(): void
+    {
+        $this->expectException(PreconditionFailedException::class);
+
+        $this->guard->guard(
+            $this->workflow,
+            WorkflowStatus::AwaitingPayment,
+            AnnualReturnDefinition::ACTION_REQUEST_PAYMENT,
+            ['quote_amount' => 0]
+        );
+    }
+
+    public function test_request_payment_rejects_a_negative_quote_amount(): void
+    {
+        $this->expectException(PreconditionFailedException::class);
+
+        $this->guard->guard(
+            $this->workflow,
+            WorkflowStatus::AwaitingPayment,
+            AnnualReturnDefinition::ACTION_REQUEST_PAYMENT,
+            ['quote_amount' => -150]
+        );
+    }
+
+    public function test_request_payment_rejects_a_non_numeric_quote_amount(): void
+    {
+        $this->expectException(PreconditionFailedException::class);
+
+        $this->guard->guard(
+            $this->workflow,
+            WorkflowStatus::AwaitingPayment,
+            AnnualReturnDefinition::ACTION_REQUEST_PAYMENT,
+            ['quote_amount' => 'a lot']
+        );
+    }
+
+    public function test_request_payment_succeeds_with_a_positive_quote_amount(): void
+    {
+        $this->guard->guard(
+            $this->workflow,
+            WorkflowStatus::AwaitingPayment,
+            AnnualReturnDefinition::ACTION_REQUEST_PAYMENT,
+            ['quote_amount' => 850.00]
+        );
+
+        $this->addToAssertionCount(1);
+    }
+
     public function test_confirm_payment_requires_a_payment_reference(): void
     {
         $this->expectException(PreconditionFailedException::class);

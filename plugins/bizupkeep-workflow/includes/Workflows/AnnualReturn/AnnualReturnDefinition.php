@@ -15,6 +15,17 @@ use BizHub\Workflow\Enums\WorkflowStatus;
  *   Created -> Awaiting Payment -> Processing ->
  *   Quality Review -> Completed -> Archived
  *
+ * Unlike Company Registration/Amendment, "request_payment" (Created ->
+ * AwaitingPayment) is not something the client's own submission fires
+ * automatically - it requires a `quote_amount` in context
+ * (AnnualReturnGuard::guardRequestPayment()), and is only ever fired
+ * from the staff-facing Quality Review screen once someone has
+ * actually checked CIPC and decided what to charge. This is the
+ * "staff to check annual returns on CIPC site >> send quote to
+ * client" step from the workflow spec: a client sits in Created,
+ * quote-less, until staff act - there's no separate "awaiting quote"
+ * status because Created already means exactly that for this type.
+ *
  * No PendingDocuments/DocumentsVerified stage: an Annual Return only
  * reaffirms already-registered director/address details rather than
  * collecting new supporting documents, per the spec's Input section.

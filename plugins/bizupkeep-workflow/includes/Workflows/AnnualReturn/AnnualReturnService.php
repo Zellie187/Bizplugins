@@ -48,11 +48,16 @@ final class AnnualReturnService implements WorkflowTypeServiceInterface
      * Start an Annual Return workflow for an existing company and
      * financial year.
      *
+     * @param array<string,mixed> $metadata Optional extra workflow metadata, e.g.
+     *                                       'client_notes' (free text the client entered
+     *                                       at submission, since nothing else transitions -
+     *                                       and so records a reason - until staff send a quote).
+     *
      * @throws ValidationException                              If that financial year already has a
      *                                                            non-cancelled Annual Return on file.
      * @throws \BizHub\Companies\Exceptions\CompanyNotFoundException If the company does not exist.
      */
-    public function start(string $companyUuid, int $userId, int $financialYear): WorkflowInstance
+    public function start(string $companyUuid, int $userId, int $financialYear, array $metadata = []): WorkflowInstance
     {
         $company = $this->companyService->getCompany($companyUuid);
 
@@ -71,7 +76,7 @@ final class AnnualReturnService implements WorkflowTypeServiceInterface
             'company',
             $company->getUuid(),
             $userId,
-            ['financial_year' => $financialYear]
+            array_merge(['financial_year' => $financialYear], $metadata)
         ));
     }
 

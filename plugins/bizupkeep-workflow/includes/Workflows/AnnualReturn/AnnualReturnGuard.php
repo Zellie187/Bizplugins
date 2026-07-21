@@ -26,10 +26,32 @@ final class AnnualReturnGuard implements TransitionGuardInterface
         array $context
     ): void {
         match ($action) {
+            AnnualReturnDefinition::ACTION_REQUEST_PAYMENT => $this->guardRequestPayment($context),
             AnnualReturnDefinition::ACTION_CONFIRM_PAYMENT => $this->guardConfirmPayment($context),
             AnnualReturnDefinition::ACTION_APPROVE => $this->guardApprove($context),
             default => null,
         };
+    }
+
+    /**
+     * Requiring a quote amount here is what turns "request payment"
+     * into "staff have checked CIPC and are now quoting the client a
+     * specific amount" - per the workflow spec's "staff to check
+     * annual returns on CIPC site >> send quote to client" step, which
+     * this guard is the only enforcement point for (nothing upstream
+     * of it knows or cares what CIPC actually says).
+     *
+     * @param array<string,mixed> $context
+     */
+    private function guardRequestPayment(array $context): void
+    {
+        $amount = $context['quote_amount'] ?? null;
+
+        if (! is_numeric($amount) || (float) $amount <= 0.0) {
+            throw new PreconditionFailedException(
+                'A quote amount greater than zero is required to send a payment request.'
+            );
+        }
     }
 
     /**

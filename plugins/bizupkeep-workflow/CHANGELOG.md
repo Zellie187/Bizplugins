@@ -2,6 +2,15 @@
 
 All notable changes to BizUpKeep Workflow are documented in this file.
 
+## [1.5.0] - 2026-07-21
+
+### Changed
+
+- **Annual Return lifecycle redesign**: `request_payment` (Created -> AwaitingPayment) is no longer something the client's own submission fires automatically - `AnnualReturnGuard::guardRequestPayment()` now requires a `quote_amount` (a positive number) in context, so the transition can only happen once staff have actually checked CIPC and decided what to charge. This finally implements the workflow spec's "staff to check annual returns on CIPC site >> send quote to client" step, which the original 1.0.0 implementation skipped entirely (payment used to fire immediately at submission, for whatever fixed-price product the client happened to buy).
+- Quality Review gained a "Send Quote" form, shown only for an Annual Return application sitting in `Created`: staff enter an amount (ZAR) and optional notes, which fires `request_payment` with `quote_amount`/`quote_notes` in context - both persisted in the workflow's metadata and shown back on future visits (alongside the client's own `client_notes`, captured at submission and displayed for staff before they quote).
+- `AnnualReturnService::start()` gained an optional `$metadata` parameter (matching the pattern `CompanyRegistrationService::start()` already established), used to carry the client's optional submission notes now that nothing else transitions - and so records a reason - at submission time.
+- 6 new PHPUnit tests (4 guard, plus a new integration test file with 2 tests covering the precondition and the full quote-to-completed lifecycle), 61 total (up from 55); PHPStan and PHPCS clean.
+
 ## [1.4.0] - 2026-07-21
 
 ### Added

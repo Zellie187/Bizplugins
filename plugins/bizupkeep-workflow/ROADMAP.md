@@ -33,6 +33,12 @@ See `CHANGELOG.md` for the full 1.0.0 entry and `docs/workflows/Company-Registra
 
 **Still not built**: a fuller admin case-management view beyond this - changing a workflow's status directly (not just via Approve/Reject/the name-rejection loop), bulk actions, or a dashboard-style overview rather than a flat list. Also still no way for staff to delete/replace a single wrongly-uploaded document version (`DocumentService::deleteDocument()` removes the whole document and all its versions; there's no single-version delete or "add a corrective version" UI yet).
 
+## Shipped in 1.5.0
+
+- **Annual Return lifecycle redesign**: closes the gap left open since 1.0.0, where a client's own submission fired `request_payment` immediately with no staff involvement and no variable pricing. `request_payment` now requires a staff-entered `quote_amount` (`AnnualReturnGuard::guardRequestPayment()`), sent from a new "Send Quote" form on Quality Review's detail view for an Annual Return sitting in `Created` - the "staff to check annual returns on CIPC site >> send quote to client" step from the original spec. The client sees the exact quoted amount (not a fixed product price) on My Applications and pays it via a dedicated WooCommerce flow: a hidden, zero-priced "Annual Return Filing Fee" product whose cart-item price is overridden to the quote amount at checkout time (`woocommerce_before_calculate_totals`) - the standard pattern for a variable/custom-amount WooCommerce product. See `CHANGELOG.md` for full detail.
+
+**Still not built**: the equivalent staff-quote step doesn't apply to Company Registration/Amendment (their pricing is still fixed-product, unchanged) - only Annual Return needed this per the spec. Also still not built for Annual Return specifically: any reminder/due-date automation for when a filing becomes due (see the Queue System/Automation architecture notes below), and no way to revise a quote once sent - `request_payment` only runs from `Created`, so once a workflow reaches `AwaitingPayment` the "Send Quote" form is gone and there's no "re-quote" action; the only way to change a wrong amount today is `cancel` and have the client re-submit.
+
 ## Next milestones: the remaining specified workflow types
 
 `docs/workflows/` contains implementation-ready design specifications (Input/Validation/Preconditions/Business Rules/State Changes/Events/Notifications/Rollback/Completion Criteria/Audit Logging, per `docs/development/Workflow-Standards.md`) for further South African compliance workflow types not yet built:
