@@ -15,7 +15,11 @@ See `CHANGELOG.md` for the full 1.0.0 entry and `docs/workflows/Company-Registra
 - The **Annual Return** workflow (`AnnualReturnDefinition`/`Guard`/`Service`/`ServiceProvider`, type `annual_return`), implemented per `docs/workflows/Annual-Returns.md`'s proposed lifecycle, including the duplicate-filing check (one non-cancelled Annual Return per company per financial year).
 - Client-facing intake for all three workflow types (New Registration / Company Amendment / Annual Return), live on the `astra-child` theme's `/apply/` page. Director records now carry phone/email/residential-address fields too (`BizHub\Companies\Entities\Director`, bizhub 0.2.5), needed by the New Registration director repeater.
 
-**Still not built for Company Amendment/Annual Return**: REST controllers/routes (the theme's intake calls the services directly via the shared container, the same pattern Company Registration's intake always used) and any admin-side review screen beyond Quality Review's existing Company-Registration-only list (Company Amendment/Annual Return applications don't yet appear there).
+## Shipped in 1.2.0
+
+- **Quality Review and the "Workflows" admin list now cover all three workflow types**, closing the gap 1.1.0 left open: Company Amendment and Annual Return applications are reviewable (Quality Review) and visible (Workflows list), not just Company Registration. See `CHANGELOG.md` for detail, including the new `WorkflowTypeServiceInterface` and `WorkflowRepositoryInterface::summariesByStatus()` that made this a small, type-agnostic change rather than three copy-pasted admin screens.
+
+**Still not built for Company Amendment/Annual Return**: REST controllers/routes (the theme's intake calls the services directly via the shared container, the same pattern Company Registration's intake always used). Also still not built for any type: automatically applying an *approved* Company Amendment's requested changes to the live Company/Director records - approval today is only a status transition, same as it's always been for Company Registration.
 
 ## Next milestones: the remaining specified workflow types
 

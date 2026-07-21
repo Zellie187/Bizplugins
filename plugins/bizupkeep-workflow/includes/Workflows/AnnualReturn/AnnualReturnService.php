@@ -7,6 +7,7 @@ namespace BizHub\Workflow\Workflows\AnnualReturn;
 use BizHub\Companies\Contracts\CompanyServiceInterface;
 use BizHub\Workflow\Contracts\WorkflowEngineInterface;
 use BizHub\Workflow\Contracts\WorkflowRepositoryInterface;
+use BizHub\Workflow\Contracts\WorkflowTypeServiceInterface;
 use BizHub\Workflow\DTO\CreateWorkflowCommand;
 use BizHub\Workflow\DTO\RollbackWorkflowCommand;
 use BizHub\Workflow\DTO\TransitionWorkflowCommand;
@@ -22,7 +23,7 @@ use BizHub\Workflow\Exceptions\WorkflowNotFoundException;
  *
  * @package BizHub\Workflow\Workflows\AnnualReturn
  */
-final class AnnualReturnService
+final class AnnualReturnService implements WorkflowTypeServiceInterface
 {
     /**
      * @var array<int,string>

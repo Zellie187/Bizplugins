@@ -12,6 +12,7 @@ use BizHub\Documents\Exceptions\DocumentNotFoundException;
 use BizHub\Documents\Services\DocumentService;
 use BizHub\Security\Authorization\Contracts\AuthorizationServiceInterface;
 use BizHub\Workflow\Contracts\WorkflowRepositoryInterface;
+use BizHub\Workflow\Contracts\WorkflowTypeServiceInterface;
 use BizHub\Workflow\DTO\WorkflowSummary;
 use BizHub\Workflow\Entities\WorkflowInstance;
 use BizHub\Workflow\Enums\WorkflowStatus;
@@ -20,21 +21,29 @@ use BizHub\Workflow\Exceptions\PreconditionFailedException;
 use BizHub\Workflow\Exceptions\ValidationException;
 use BizHub\Workflow\Exceptions\WorkflowNotFoundException;
 use BizHub\Workflow\Policies\Capabilities;
+use BizHub\Workflow\Workflows\AnnualReturn\AnnualReturnDefinition;
+use BizHub\Workflow\Workflows\AnnualReturn\AnnualReturnService;
+use BizHub\Workflow\Workflows\CompanyAmendment\CompanyAmendmentDefinition;
+use BizHub\Workflow\Workflows\CompanyAmendment\CompanyAmendmentService;
 use BizHub\Workflow\Workflows\CompanyRegistration\CompanyRegistrationDefinition;
 use BizHub\Workflow\Workflows\CompanyRegistration\CompanyRegistrationService;
+use RuntimeException;
 
 /**
- * Staff-facing "Quality Review" admin screen: lists every Company
- * Registration workflow currently sitting in the QualityReview status
- * and lets a reviewer Approve or Reject it, per BH-WORKFLOW-SPEC-001's
- * Processing -> QualityReview -> Completed/Rejected lifecycle.
+ * Staff-facing "Quality Review" admin screen: lists every workflow
+ * instance - across all three workflow types (Company Registration,
+ * Company Amendment, Annual Return) - currently sitting in the
+ * QualityReview status, and lets a reviewer Approve or Reject it, per
+ * BH-WORKFLOW-SPEC-001's Processing -> QualityReview ->
+ * Completed/Rejected lifecycle.
  *
- * Thin by the same design as CompanyRegistrationController: every
- * mutation is delegated to CompanyRegistrationService, which is the
- * only path that ever touches the workflow engine for this workflow
- * type. This page only adds the read-side aggregation (joining a
- * workflow instance to its Company, Client and Documents) needed to
- * actually review an application.
+ * Thin by the same design as each type's own Controller: every
+ * mutation is delegated to that workflow's Service class (the only
+ * path that ever touches the workflow engine for its type), resolved
+ * generically via WorkflowTypeServiceInterface + serviceFor() rather
+ * than this page hardcoding one type. This page only adds the
+ * read-side aggregation (joining a workflow instance to its Company,
+ * Client and Documents) needed to actually review an application.
  *
  * @package BizHub\Workflow\Admin
  */
@@ -46,16 +55,45 @@ final class QualityReviewPage
 
     private const NONCE_FIELD = 'bizupkeep_workflow_quality_review_nonce';
 
+    private const ACTION_APPROVE = 'approve';
+
+    private const ACTION_REJECT = 'reject';
+
     /**
-     * Upper bound on how many Company Registration workflows are
-     * scanned to build the review queue. Generous for the business
-     * volume this runs at; revisit with a status-filtered repository
-     * query if that ever stops being true.
+     * The workflow types this screen reviews, in display order.
+     *
+     * @var array<int,string>
+     */
+    private const REVIEWED_TYPES = [
+        CompanyRegistrationDefinition::TYPE,
+        CompanyAmendmentDefinition::TYPE,
+        AnnualReturnDefinition::TYPE,
+    ];
+
+    /**
+     * Annual Return has no Reject action in its state machine (see
+     * AnnualReturnDefinition) - CIPC does not "reject" a compliant
+     * filing the way it might a name change - so it's the one
+     * reviewed type excluded here.
+     *
+     * @var array<int,string>
+     */
+    private const REJECTABLE_TYPES = [
+        CompanyRegistrationDefinition::TYPE,
+        CompanyAmendmentDefinition::TYPE,
+    ];
+
+    /**
+     * Upper bound on how many workflow instances of a single type are
+     * scanned per query to build the review queue. Generous for the
+     * business volume this runs at.
      */
     private const SCAN_LIMIT = 200;
 
     public function __construct(
         private readonly CompanyRegistrationService $registrations,
+        private readonly CompanyAmendmentService $amendments,
+        private readonly AnnualReturnService $annualReturns,
         private readonly WorkflowRepositoryInterface $workflows,
         private readonly CompanyServiceInterface $companies,
         private readonly ClientRepositoryInterface $clients,
@@ -113,7 +151,11 @@ final class QualityReviewPage
      */
     private function handleSubmission(int $userId): ?array
     {
-        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || ! isset($_POST['bizupkeep_action'])) {
+        $requestMethod = isset($_SERVER['REQUEST_METHOD'])
+            ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_METHOD']))
+            : '';
+
+        if ($requestMethod !== 'POST' || ! isset($_POST['bizupkeep_action'])) {
             return null;
         }
 
@@ -131,21 +173,32 @@ final class QualityReviewPage
         $action = sanitize_text_field(wp_unslash($_POST['bizupkeep_action']));
         $reason = isset($_POST['reason']) ? sanitize_textarea_field(wp_unslash($_POST['reason'])) : '';
 
-        if ($action === CompanyRegistrationDefinition::ACTION_REJECT && trim($reason) === '') {
+        $workflow = $this->workflows->find($workflowUuid);
+
+        if ($workflow === null || ! in_array($workflow->getWorkflowType(), self::REVIEWED_TYPES, true)) {
+            return ['error', __('That application could not be found.', 'bizupkeep-workflow')];
+        }
+
+        if ($action === self::ACTION_REJECT && ! in_array($workflow->getWorkflowType(), self::REJECTABLE_TYPES, true)) {
+            return ['error', __('This application type cannot be rejected.', 'bizupkeep-workflow')];
+        }
+
+        if ($action === self::ACTION_REJECT && trim($reason) === '') {
             return ['error', __('A reason is required to reject an application.', 'bizupkeep-workflow')];
         }
 
-        $context = $action === CompanyRegistrationDefinition::ACTION_APPROVE
+        $context = $action === self::ACTION_APPROVE
             ? ['reviewed_by' => $this->currentUserLabel()]
             : [];
 
         try {
-            $this->registrations->performAction($workflowUuid, $action, $userId, $reason, $context);
+            $this->serviceFor($workflow->getWorkflowType())
+                ->performAction($workflowUuid, $action, $userId, $reason, $context);
 
-            return ['success', $action === CompanyRegistrationDefinition::ACTION_APPROVE
+            return ['success', $action === self::ACTION_APPROVE
                 ? __('Application approved.', 'bizupkeep-workflow')
                 : __('Application rejected.', 'bizupkeep-workflow')];
-        } catch (ValidationException|PreconditionFailedException|InvalidTransitionException $exception) {
+        } catch (ValidationException | PreconditionFailedException | InvalidTransitionException $exception) {
             return ['error', $exception->getMessage()];
         } catch (WorkflowNotFoundException $exception) {
             return ['error', __('That application could not be found.', 'bizupkeep-workflow')];
@@ -160,13 +213,16 @@ final class QualityReviewPage
         $pending = $this->pendingReviews();
 
         if ($pending === []) {
-            echo '<p>' . esc_html__('No applications are currently awaiting quality review.', 'bizupkeep-workflow') . '</p>';
+            echo '<p>'
+                . esc_html__('No applications are currently awaiting quality review.', 'bizupkeep-workflow')
+                . '</p>';
 
             return;
         }
 
         echo '<table class="wp-list-table widefat fixed striped">';
         echo '<thead><tr>'
+            . '<th>' . esc_html__('Type', 'bizupkeep-workflow') . '</th>'
             . '<th>' . esc_html__('Company', 'bizupkeep-workflow') . '</th>'
             . '<th>' . esc_html__('Registration No.', 'bizupkeep-workflow') . '</th>'
             . '<th>' . esc_html__('Client', 'bizupkeep-workflow') . '</th>'
@@ -186,6 +242,7 @@ final class QualityReviewPage
             );
 
             echo '<tr>'
+                . '<td>' . esc_html($this->typeLabel($summary->workflowType)) . '</td>'
                 . '<td>' . esc_html($companyName) . '</td>'
                 . '<td>' . esc_html($regNumber) . '</td>'
                 . '<td>' . esc_html($client) . '</td>'
@@ -200,13 +257,14 @@ final class QualityReviewPage
 
     /**
      * Render a single application's review detail: company info,
-     * uploaded documents, and the Approve/Reject form.
+     * type-specific request details, uploaded documents, and the
+     * Approve/Reject form.
      */
     private function renderDetail(string $workflowUuid): void
     {
-        try {
-            $workflow = $this->registrations->find($workflowUuid);
-        } catch (WorkflowNotFoundException) {
+        $workflow = $this->workflows->find($workflowUuid);
+
+        if ($workflow === null || ! in_array($workflow->getWorkflowType(), self::REVIEWED_TYPES, true)) {
             echo '<p>' . esc_html__('That application could not be found.', 'bizupkeep-workflow') . '</p>';
 
             return;
@@ -234,10 +292,14 @@ final class QualityReviewPage
             // Fall through - render what we can without company details.
         }
 
-        echo '<h2>' . esc_html($company?->getCompanyName() ?? __('(company record missing)', 'bizupkeep-workflow')) . '</h2>';
+        echo '<p><span class="bizupkeep-workflow-type-badge">'
+            . esc_html($this->typeLabel($workflow->getWorkflowType())) . '</span></p>';
+        $companyLabel = $company?->getCompanyName() ?? __('(company record missing)', 'bizupkeep-workflow');
+        echo '<h2>' . esc_html($companyLabel) . '</h2>';
 
         if ($company !== null) {
             $this->renderCompanyDetails($company);
+            $this->renderTypeSpecificDetails($workflow);
             $this->renderDocuments($workflow, $company);
         }
 
@@ -253,8 +315,123 @@ final class QualityReviewPage
         $this->row(__('Registration Number', 'bizupkeep-workflow'), $company->getRegistrationNumber());
         $this->row(__('Company Type', 'bizupkeep-workflow'), $company->getCompanyType());
         $this->row(__('Client', 'bizupkeep-workflow'), $this->clientLabelFor($company));
-        $this->row(__('Registered Address', 'bizupkeep-workflow'), $company->getRegisteredAddress()->getFormattedAddress());
+        $this->row(
+            __('Registered Address', 'bizupkeep-workflow'),
+            $company->getRegisteredAddress()->getFormattedAddress()
+        );
         echo '</tbody></table>';
+    }
+
+    /**
+     * Render what's actually being requested, using the metadata each
+     * type's Service records at start() - proposed names for a
+     * Registration, which amendment type(s)/director changes/new
+     * address for an Amendment, the filing year for an Annual Return.
+     */
+    private function renderTypeSpecificDetails(WorkflowInstance $workflow): void
+    {
+        $metadata = $workflow->getMetadata();
+
+        if ($workflow->getWorkflowType() === CompanyRegistrationDefinition::TYPE) {
+            $names = $this->stringList($metadata['proposed_names'] ?? null);
+
+            if ($names !== []) {
+                echo '<h3>' . esc_html__('Proposed Company Names', 'bizupkeep-workflow') . '</h3><ol>';
+                foreach ($names as $name) {
+                    echo '<li>' . esc_html($name) . '</li>';
+                }
+                echo '</ol>';
+            }
+
+            return;
+        }
+
+        if ($workflow->getWorkflowType() === AnnualReturnDefinition::TYPE) {
+            echo '<h3>' . esc_html__('Filing Details', 'bizupkeep-workflow') . '</h3>';
+            echo '<table class="form-table"><tbody>';
+            $this->row(
+                __('Financial Year', 'bizupkeep-workflow'),
+                (string) (int) ($metadata['financial_year'] ?? 0)
+            );
+            echo '</tbody></table>';
+
+            return;
+        }
+
+        // Company Amendment.
+        $types = array_values(array_intersect(
+            $this->stringList($metadata['amendment_types'] ?? null),
+            CompanyAmendmentDefinition::ALL_AMENDMENT_TYPES
+        ));
+
+        echo '<h3>' . esc_html__('Requested Changes', 'bizupkeep-workflow') . '</h3><ul>';
+        foreach ($types as $type) {
+            echo '<li>' . esc_html($this->amendmentTypeLabel($type)) . '</li>';
+        }
+        echo '</ul>';
+
+        if (in_array(CompanyAmendmentDefinition::AMENDMENT_TYPE_NAME, $types, true)) {
+            $names = $this->stringList($metadata['proposed_names'] ?? null);
+            echo '<p><strong>' . esc_html__('Proposed names:', 'bizupkeep-workflow') . '</strong> '
+                . esc_html(implode('; ', $names)) . '</p>';
+        }
+
+        if (in_array(CompanyAmendmentDefinition::AMENDMENT_TYPE_ADDRESS, $types, true)) {
+            $address = is_array($metadata['new_address'] ?? null) ? $metadata['new_address'] : [];
+            $parts = array_filter([
+                $address['address_line_1'] ?? '',
+                $address['address_line_2'] ?? '',
+                $address['suburb'] ?? '',
+                $address['city'] ?? '',
+                $address['province'] ?? '',
+                $address['postal_code'] ?? '',
+            ]);
+            echo '<p><strong>' . esc_html__('New address:', 'bizupkeep-workflow') . '</strong> '
+                . esc_html(implode(', ', $parts)) . '</p>';
+        }
+
+        if (in_array(CompanyAmendmentDefinition::AMENDMENT_TYPE_DIRECTOR, $types, true)) {
+            $changes = is_array($metadata['director_changes'] ?? null) ? $metadata['director_changes'] : [];
+            echo '<p><strong>' . esc_html__('Director changes:', 'bizupkeep-workflow') . '</strong></p><ul>';
+            foreach ($changes as $change) {
+                echo '<li>' . esc_html($this->directorChangeLabel($change)) . '</li>';
+            }
+            echo '</ul>';
+        }
+    }
+
+    /**
+     * @param mixed $change
+     */
+    private function directorChangeLabel($change): string
+    {
+        if (! is_array($change)) {
+            return '';
+        }
+
+        if (($change['action'] ?? '') === 'remove') {
+            return sprintf(
+                /* translators: %s: director's full name */
+                __('Remove: %s', 'bizupkeep-workflow'),
+                (string) ($change['name'] ?? '')
+            );
+        }
+
+        return sprintf(
+            /* translators: %s: director's full name */
+            __('Add: %s', 'bizupkeep-workflow'),
+            trim((string) ($change['first_name'] ?? '') . ' ' . (string) ($change['last_name'] ?? ''))
+        );
+    }
+
+    private function amendmentTypeLabel(string $type): string
+    {
+        return match ($type) {
+            CompanyAmendmentDefinition::AMENDMENT_TYPE_DIRECTOR => __('Director amendment', 'bizupkeep-workflow'),
+            CompanyAmendmentDefinition::AMENDMENT_TYPE_NAME => __('Name change', 'bizupkeep-workflow'),
+            CompanyAmendmentDefinition::AMENDMENT_TYPE_ADDRESS => __('Address change', 'bizupkeep-workflow'),
+            default => $type,
+        };
     }
 
     private function row(string $label, string $value): void
@@ -291,25 +468,32 @@ final class QualityReviewPage
 
     private function renderReviewForm(WorkflowInstance $workflow): void
     {
+        $canReject = in_array($workflow->getWorkflowType(), self::REJECTABLE_TYPES, true);
+
         echo '<h3>' . esc_html__('Decision', 'bizupkeep-workflow') . '</h3>';
         echo '<form method="post">';
         wp_nonce_field(self::NONCE_ACTION, self::NONCE_FIELD);
         echo '<input type="hidden" name="workflow" value="' . esc_attr($workflow->getUuid()) . '" />';
 
-        echo '<p><label for="bizupkeep-reason">' . esc_html__('Notes (required to reject)', 'bizupkeep-workflow')
-            . '</label><br />'
+        echo '<p><label for="bizupkeep-reason">' . esc_html(
+            $canReject
+                ? __('Notes (required to reject)', 'bizupkeep-workflow')
+                : __('Notes (optional)', 'bizupkeep-workflow')
+        ) . '</label><br />'
             . '<textarea id="bizupkeep-reason" name="reason" rows="4" class="large-text"></textarea></p>';
 
         echo '<p>'
             . '<button type="submit" name="bizupkeep_action" value="'
-            . esc_attr(CompanyRegistrationDefinition::ACTION_APPROVE) . '" class="button button-primary">'
-            . esc_html__('Approve', 'bizupkeep-workflow') . '</button> '
-            . '<button type="submit" name="bizupkeep_action" value="'
-            . esc_attr(CompanyRegistrationDefinition::ACTION_REJECT) . '" class="button">'
-            . esc_html__('Reject', 'bizupkeep-workflow') . '</button>'
-            . '</p>';
+            . esc_attr(self::ACTION_APPROVE) . '" class="button button-primary">'
+            . esc_html__('Approve', 'bizupkeep-workflow') . '</button> ';
 
-        echo '</form>';
+        if ($canReject) {
+            echo '<button type="submit" name="bizupkeep_action" value="'
+                . esc_attr(self::ACTION_REJECT) . '" class="button">'
+                . esc_html__('Reject', 'bizupkeep-workflow') . '</button>';
+        }
+
+        echo '</p></form>';
     }
 
     /**
@@ -323,11 +507,16 @@ final class QualityReviewPage
             wp_die(esc_html__('You are not permitted to access this document.', 'bizupkeep-workflow'));
         }
 
+        $workflow = $this->workflows->find($workflowUuid);
+
+        if ($workflow === null || ! in_array($workflow->getWorkflowType(), self::REVIEWED_TYPES, true)) {
+            wp_die(esc_html__('That document could not be found.', 'bizupkeep-workflow'));
+        }
+
         try {
-            $workflow = $this->registrations->find($workflowUuid);
             $company = $this->companies->getCompany($workflow->getSubjectUuid());
             $document = $this->documents->getDocument($documentUuid);
-        } catch (WorkflowNotFoundException|CompanyNotFoundException|DocumentNotFoundException) {
+        } catch (CompanyNotFoundException | DocumentNotFoundException) {
             wp_die(esc_html__('That document could not be found.', 'bizupkeep-workflow'));
         }
 
@@ -356,12 +545,19 @@ final class QualityReviewPage
      */
     private function pendingReviews(): array
     {
-        $summaries = $this->workflows->summaries(CompanyRegistrationDefinition::TYPE, self::SCAN_LIMIT);
+        $pending = [];
 
-        $pending = array_values(array_filter(
-            $summaries,
-            static fn (WorkflowSummary $summary): bool => $summary->status === WorkflowStatus::QualityReview
-        ));
+        foreach (self::REVIEWED_TYPES as $type) {
+            $summaries = $this->workflows->summariesByStatus(
+                $type,
+                WorkflowStatus::QualityReview,
+                self::SCAN_LIMIT
+            );
+
+            foreach ($summaries as $summary) {
+                $pending[] = $summary;
+            }
+        }
 
         usort(
             $pending,
@@ -370,6 +566,38 @@ final class QualityReviewPage
         );
 
         return $pending;
+    }
+
+    /**
+     * Resolve the workflow type's own Service class, the only path
+     * that may touch the workflow engine for that type.
+     */
+    private function serviceFor(string $workflowType): WorkflowTypeServiceInterface
+    {
+        $service = match ($workflowType) {
+            CompanyRegistrationDefinition::TYPE => $this->registrations,
+            CompanyAmendmentDefinition::TYPE => $this->amendments,
+            AnnualReturnDefinition::TYPE => $this->annualReturns,
+            default => null,
+        };
+
+        if ($service === null) {
+            throw new RuntimeException(
+                esc_html("Quality Review does not support workflow type \"{$workflowType}\".")
+            );
+        }
+
+        return $service;
+    }
+
+    private function typeLabel(string $workflowType): string
+    {
+        return match ($workflowType) {
+            CompanyRegistrationDefinition::TYPE => __('Company Registration', 'bizupkeep-workflow'),
+            CompanyAmendmentDefinition::TYPE => __('Company Amendment', 'bizupkeep-workflow'),
+            AnnualReturnDefinition::TYPE => __('Annual Return', 'bizupkeep-workflow'),
+            default => $workflowType,
+        };
     }
 
     private function companyFor(WorkflowSummary $summary): ?Company
@@ -392,6 +620,27 @@ final class QualityReviewPage
         $wpUser = get_userdata($client->getWpUserId());
 
         return $wpUser instanceof \WP_User ? $wpUser->display_name . ' <' . $wpUser->user_email . '>' : '—';
+    }
+
+    /**
+     * Normalize a metadata value that should be a list of strings
+     * (e.g. proposed_names), tolerating whatever shape actually ended
+     * up in a workflow's JSON-decoded metadata.
+     *
+     * @param mixed $value
+     *
+     * @return array<int,string>
+     */
+    private function stringList($value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map(static fn (mixed $item): string => is_string($item) ? $item : '', $value),
+            static fn (string $item): bool => trim($item) !== ''
+        ));
     }
 
     private function param(string $key): string

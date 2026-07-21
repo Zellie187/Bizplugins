@@ -163,4 +163,95 @@ final class WorkflowRepositoryTest extends TestCase
         $this->assertSame($newer->getUuid(), $summaries[0]->uuid);
         $this->assertSame($older->getUuid(), $summaries[1]->uuid);
     }
+
+    public function test_summaries_by_status_only_returns_matching_type_and_status(): void
+    {
+        $matching = WorkflowInstance::start(
+            Uuid::generate(),
+            'company_registration',
+            'company',
+            Uuid::generate(),
+            WorkflowStatus::QualityReview,
+            1
+        );
+        $wrongStatus = WorkflowInstance::start(
+            Uuid::generate(),
+            'company_registration',
+            'company',
+            Uuid::generate(),
+            WorkflowStatus::Created,
+            1
+        );
+        $wrongType = WorkflowInstance::start(
+            Uuid::generate(),
+            'company_amendment',
+            'company',
+            Uuid::generate(),
+            WorkflowStatus::QualityReview,
+            1
+        );
+
+        $this->repository->save($matching);
+        $this->repository->save($wrongStatus);
+        $this->repository->save($wrongType);
+
+        $summaries = $this->repository->summariesByStatus('company_registration', WorkflowStatus::QualityReview);
+
+        $this->assertCount(1, $summaries);
+        $this->assertSame($matching->getUuid(), $summaries[0]->uuid);
+        $this->assertSame(WorkflowStatus::QualityReview, $summaries[0]->status);
+    }
+
+    public function test_summaries_by_status_are_ordered_by_most_recently_updated_first(): void
+    {
+        $older = WorkflowInstance::start(
+            Uuid::generate(),
+            'annual_return',
+            'company',
+            Uuid::generate(),
+            WorkflowStatus::QualityReview,
+            1
+        );
+        $newer = WorkflowInstance::start(
+            Uuid::generate(),
+            'annual_return',
+            'company',
+            Uuid::generate(),
+            WorkflowStatus::QualityReview,
+            1
+        );
+
+        $this->database->seed('bizhub_workflow_instances', [
+            [
+                'uuid' => $older->getUuid(),
+                'workflow_type' => 'annual_return',
+                'subject_type' => 'company',
+                'subject_uuid' => $older->getSubjectUuid(),
+                'status' => 'quality_review',
+                'metadata' => '[]',
+                'created_by' => 1,
+                'created_at' => '2026-01-01 00:00:00',
+                'updated_at' => '2026-01-01 00:00:00',
+                'completed_at' => null,
+            ],
+            [
+                'uuid' => $newer->getUuid(),
+                'workflow_type' => 'annual_return',
+                'subject_type' => 'company',
+                'subject_uuid' => $newer->getSubjectUuid(),
+                'status' => 'quality_review',
+                'metadata' => '[]',
+                'created_by' => 1,
+                'created_at' => '2026-01-02 00:00:00',
+                'updated_at' => '2026-01-02 00:00:00',
+                'completed_at' => null,
+            ],
+        ]);
+
+        $summaries = $this->repository->summariesByStatus('annual_return', WorkflowStatus::QualityReview);
+
+        $this->assertCount(2, $summaries);
+        $this->assertSame($newer->getUuid(), $summaries[0]->uuid);
+        $this->assertSame($older->getUuid(), $summaries[1]->uuid);
+    }
 }

@@ -7,6 +7,7 @@ namespace BizHub\Workflow\Contracts;
 use BizHub\Workflow\DTO\Transition;
 use BizHub\Workflow\DTO\WorkflowSummary;
 use BizHub\Workflow\Entities\WorkflowInstance;
+use BizHub\Workflow\Enums\WorkflowStatus;
 
 /**
  * Persists workflow instances and their transition history using the
@@ -37,6 +38,20 @@ interface WorkflowRepositoryInterface
      * @return array<int,WorkflowSummary>
      */
     public function summaries(string $workflowType, int $limit = 50, int $offset = 0): array;
+
+    /**
+     * Return lightweight summaries of every workflow instance of a
+     * given type currently sitting at a specific status, most recently
+     * updated first. Unlike summaries(), filters at the database level
+     * so pagination stays correct even when most instances of a type
+     * are not in the requested status - a client-side filter after
+     * summaries() would paginate before filtering and could silently
+     * miss matching rows once there are more than $limit total
+     * instances.
+     *
+     * @return array<int,WorkflowSummary>
+     */
+    public function summariesByStatus(string $workflowType, WorkflowStatus $status, int $limit = 50, int $offset = 0): array;
 
     /**
      * Persist a workflow instance's current status/metadata snapshot.

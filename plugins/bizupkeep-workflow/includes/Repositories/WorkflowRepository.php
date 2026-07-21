@@ -94,6 +94,33 @@ final class WorkflowRepository implements WorkflowRepositoryInterface
     /**
      * {@inheritDoc}
      */
+    public function summariesByStatus(string $workflowType, WorkflowStatus $status, int $limit = 50, int $offset = 0): array
+    {
+        $rows = $this->database->findAll(
+            self::INSTANCES_TABLE,
+            ['workflow_type' => $workflowType, 'status' => $status->value],
+            ['updated_at' => 'DESC'],
+            $limit,
+            $offset
+        );
+
+        return array_map(
+            fn (array $row): WorkflowSummary => new WorkflowSummary(
+                $row['uuid'],
+                $row['workflow_type'],
+                $row['subject_type'],
+                $row['subject_uuid'],
+                WorkflowStatus::from($row['status']),
+                $this->toDate($row['created_at']) ?? new DateTimeImmutable(),
+                $this->toDate($row['updated_at'] ?? null)
+            ),
+            $rows
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     public function save(WorkflowInstance $workflow): WorkflowInstance
     {
         $data = $this->dehydrate($workflow);

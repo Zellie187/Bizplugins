@@ -2,6 +2,16 @@
 
 All notable changes to BizUpKeep Workflow are documented in this file.
 
+## [1.2.0] - 2026-07-21
+
+### Added
+
+- **Quality Review now covers all three workflow types**, not just Company Registration: Company Amendment and Annual Return applications sitting in `QualityReview` now appear in the queue, with type-specific detail rendering (requested amendment types/proposed names/director changes/new address for an Amendment; financial year for an Annual Return) and Approve/Reject. Annual Return has no Reject action in its state machine, so its review form only offers Approve.
+- **`WorkflowTypeServiceInterface`**: the common `performAction()`/`rollback()`/`find()`/`historyFor()` shape every workflow type's Service class already had, now named as an interface (`CompanyRegistrationService`, `CompanyAmendmentService`, `AnnualReturnService` all implement it) so code like Quality Review can dispatch to the right concrete service for a given workflow type without hardcoding one.
+- **`WorkflowRepositoryInterface::summariesByStatus()`**: filters by status at the database level (unlike `summaries()` + a client-side filter, which paginates before filtering and could silently miss matching rows past the scan limit). Quality Review's queue now uses this instead of scanning-then-filtering.
+- The "Workflows" admin list (`WorkflowAdminMenu`) also now lists all three types with a Type column, instead of only Company Registration; its permission check was also fixed from a hardcoded `manage_options` to `Capabilities::WORKFLOW_VIEW`, consistent with every other access point (REST controller, Quality Review).
+- 2 new PHPUnit tests for `summariesByStatus()` (50 total, up from 48), all passing; PHPStan and PHPCS clean.
+
 ## [1.1.0] - 2026-07-21
 
 ### Added
