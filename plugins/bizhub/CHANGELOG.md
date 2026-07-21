@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.2.5] - Director contact and address fields
+
+### Added
+
+- `Companies\Entities\Director`/`DTO\DirectorData` now carry optional `phone`, `email`, and a full residential `address` (a `RegisteredAddress`/`AddressData`, same shape as a company's), populated by `CompanyService::createCompany()` (when directors are passed on `CompanyData`) and `DirectorService::addDirectorToCompany()`/`updateDirector()`. Additive - existing callers that don't pass these fields are unaffected (all default to `null`).
+- `bizhub_directors` table gained `phone`, `email`, `address_line_1`, `address_line_2`, `suburb`, `city`, `province`, `postal_code`, `country` columns (`Framework\Install\Schema`), applied automatically on next boot via the existing `InstallServiceProvider` version-check auto-migration - no manual migration step needed. `Migrator::CURRENT_VERSION` bumped to `1.1.0`.
+- Driven by `bizupkeep-workflow`'s new client-facing application form (New Registration's director repeater needed somewhere to store contact/address per director).
+- 106 passing PHPUnit tests (up from 102), PHPStan level 6 and PHPCS clean.
+
 ## [0.2.4] - Expose Client's numeric ID
 
 ### Fixed

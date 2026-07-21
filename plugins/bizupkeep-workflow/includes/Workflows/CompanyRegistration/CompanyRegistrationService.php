@@ -52,9 +52,13 @@ final class CompanyRegistrationService
     /**
      * Start a Company Registration workflow for an existing company.
      *
+     * @param array<string,mixed> $metadata Optional workflow metadata, e.g.
+     *                                       'proposed_names' (the client's up-to-4
+     *                                       CIPC name choices, in order of preference).
+     *
      * @throws \BizHub\Companies\Exceptions\CompanyNotFoundException If the company does not exist.
      */
-    public function start(string $companyUuid, int $userId): WorkflowInstance
+    public function start(string $companyUuid, int $userId, array $metadata = []): WorkflowInstance
     {
         $company = $this->companyService->getCompany($companyUuid);
 
@@ -62,7 +66,8 @@ final class CompanyRegistrationService
             CompanyRegistrationDefinition::TYPE,
             'company',
             $company->getUuid(),
-            $userId
+            $userId,
+            $metadata
         ));
     }
 

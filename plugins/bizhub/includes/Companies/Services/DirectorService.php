@@ -8,6 +8,7 @@ use BizHub\Companies\Contracts\CompanyRepositoryInterface;
 use BizHub\Companies\Contracts\DirectorRepositoryInterface;
 use BizHub\Companies\DTO\DirectorData;
 use BizHub\Companies\Entities\Director;
+use BizHub\Companies\Entities\RegisteredAddress;
 use BizHub\Companies\Exceptions\CompanyNotFoundException;
 use BizHub\Companies\Exceptions\DirectorNotFoundException;
 use DateTimeImmutable;
@@ -41,7 +42,11 @@ final class DirectorService
             $directorData->passportNumber,
             $directorData->appointmentDate,
             $directorData->resignationDate,
-            $directorData->active
+            $directorData->active,
+            companyUuid: null,
+            phone: $directorData->phone,
+            email: $directorData->email,
+            address: $this->addressFromDirectorData($directorData)
         );
 
         $company->addDirector($director);
@@ -79,8 +84,39 @@ final class DirectorService
         $director->setLastName($directorData->lastName);
         $director->setIdNumber($directorData->idNumber);
         $director->setPassportNumber($directorData->passportNumber);
+        $director->setPhone($directorData->phone);
+        $director->setEmail($directorData->email);
+        $director->setAddress($this->addressFromDirectorData($directorData));
 
         return $this->directors->save($director);
+    }
+
+    /**
+     * Build a director's residential RegisteredAddress from a
+     * DirectorData DTO, or null if none was provided - a director's
+     * address is optional, unlike a company's.
+     */
+    private function addressFromDirectorData(DirectorData $directorData): ?RegisteredAddress
+    {
+        if (null === $directorData->address) {
+            return null;
+        }
+
+        $address = $directorData->address;
+
+        if ('' === trim($address->addressLine1) || '' === trim($address->city) || '' === trim($address->postalCode)) {
+            return null;
+        }
+
+        return new RegisteredAddress(
+            $address->addressLine1,
+            $address->addressLine2,
+            $address->suburb,
+            $address->city,
+            $address->province,
+            $address->postalCode,
+            $address->country
+        );
     }
 
     /**

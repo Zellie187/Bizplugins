@@ -9,12 +9,13 @@
 
 See `CHANGELOG.md` for the full 1.0.0 entry and `docs/workflows/Company-Registration.md` for the implemented workflow's detail.
 
-## Shipped since 1.0.0 (engine layer only - see note below)
+## Shipped in 1.1.0
 
 - The **Company Amendment** workflow (`CompanyAmendmentDefinition`/`Guard`/`Service`/`ServiceProvider`, type `company_amendment`): a single application covering Director, Name, and/or registered-Address changes in any combination, matching the product catalogue's combined SKUs (Director & Name, Director & Address, Name & Address, All-in-One). **This intentionally departs from `docs/workflows/Director-Changes.md`, `Name-Changes.md`, and `Address-Changes.md` below**, each of which proposed a separate workflow type per amendment kind — a client only ever files one application per amendment request, so this is modelled as one workflow instance whose metadata (`amendment_types`) records which change(s) it covers, with `CompanyAmendmentGuard` enforcing the per-type required data (proposed names for a name change, director add/remove/update entries for a director change, a complete new address for an address change) before documents can be verified. Those three docs remain useful as the source of the CIPC-facing business rules (e.g. "at least one director must remain", "registered-office vs. postal address"), just not as three separate workflow types.
 - The **Annual Return** workflow (`AnnualReturnDefinition`/`Guard`/`Service`/`ServiceProvider`, type `annual_return`), implemented per `docs/workflows/Annual-Returns.md`'s proposed lifecycle, including the duplicate-filing check (one non-cancelled Annual Return per company per financial year).
+- Client-facing intake for all three workflow types (New Registration / Company Amendment / Annual Return), live on the `astra-child` theme's `/apply/` page. Director records now carry phone/email/residential-address fields too (`BizHub\Companies\Entities\Director`, bizhub 0.2.5), needed by the New Registration director repeater.
 
-**Not yet built for either**: REST controllers/routes, an admin or client-facing form UI, and Director entity fields for contact/address details (`BizHub\Companies\Entities\Director` currently only holds name + ID/passport + appointment dates) — these are the next round of work, once the client-facing application form's exact field requirements are settled.
+**Still not built for Company Amendment/Annual Return**: REST controllers/routes (the theme's intake calls the services directly via the shared container, the same pattern Company Registration's intake always used) and any admin-side review screen beyond Quality Review's existing Company-Registration-only list (Company Amendment/Annual Return applications don't yet appear there).
 
 ## Next milestones: the remaining specified workflow types
 

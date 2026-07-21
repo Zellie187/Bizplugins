@@ -6,6 +6,7 @@ namespace BizHub\Companies\Repositories;
 
 use BizHub\Companies\Contracts\DirectorRepositoryInterface;
 use BizHub\Companies\Entities\Director;
+use BizHub\Companies\Entities\RegisteredAddress;
 use BizHub\Framework\Database\Contracts\DatabaseInterface;
 use DateTimeImmutable;
 
@@ -100,7 +101,34 @@ final class DirectorRepository implements DirectorRepositoryInterface
             new DateTimeImmutable((string) $row['appointment_date']),
             empty($row['resignation_date']) ? null : new DateTimeImmutable((string) $row['resignation_date']),
             (bool) $row['active'],
-            $row['company_uuid'] ?? null
+            $row['company_uuid'] ?? null,
+            $row['phone'] ?? null,
+            $row['email'] ?? null,
+            $this->addressFromRow($row)
+        );
+    }
+
+    /**
+     * Build a director's residential address from a database row, or
+     * null if no address was ever recorded (all address columns are
+     * nullable, unlike a company's).
+     *
+     * @param array<string,mixed> $row
+     */
+    private function addressFromRow(array $row): ?RegisteredAddress
+    {
+        if (empty($row['address_line_1'])) {
+            return null;
+        }
+
+        return new RegisteredAddress(
+            (string) $row['address_line_1'],
+            (string) ($row['address_line_2'] ?? ''),
+            (string) ($row['suburb'] ?? ''),
+            (string) ($row['city'] ?? ''),
+            (string) ($row['province'] ?? ''),
+            (string) ($row['postal_code'] ?? ''),
+            (string) ($row['country'] ?? 'South Africa')
         );
     }
 
@@ -111,6 +139,8 @@ final class DirectorRepository implements DirectorRepositoryInterface
      */
     private function dehydrate(Director $director): array
     {
+        $address = $director->getAddress();
+
         return [
             'uuid' => $director->getUuid(),
             'company_uuid' => $director->getCompanyUuid(),
@@ -121,6 +151,15 @@ final class DirectorRepository implements DirectorRepositoryInterface
             'appointment_date' => $director->getAppointmentDate()->format('Y-m-d'),
             'resignation_date' => $director->getResignationDate()?->format('Y-m-d'),
             'active' => $director->isActive() ? 1 : 0,
+            'phone' => $director->getPhone(),
+            'email' => $director->getEmail(),
+            'address_line_1' => $address?->getAddressLine1(),
+            'address_line_2' => $address?->getAddressLine2(),
+            'suburb' => $address?->getSuburb(),
+            'city' => $address?->getCity(),
+            'province' => $address?->getProvince(),
+            'postal_code' => $address?->getPostalCode(),
+            'country' => $address?->getCountry(),
         ];
     }
 }

@@ -27,6 +27,9 @@ final readonly class DirectorData
      * @param DateTimeImmutable      $appointmentDate
      * @param DateTimeImmutable|null $resignationDate
      * @param bool                   $active
+     * @param string|null            $phone
+     * @param string|null            $email
+     * @param AddressData|null       $address
      */
     public function __construct(
         public string $uuid,
@@ -37,6 +40,9 @@ final readonly class DirectorData
         public DateTimeImmutable $appointmentDate,
         public ?DateTimeImmutable $resignationDate = null,
         public bool $active = true,
+        public ?string $phone = null,
+        public ?string $email = null,
+        public ?AddressData $address = null,
     ) {
     }
 
@@ -79,6 +85,9 @@ final readonly class DirectorData
             'appointment_date'  => $this->appointmentDate->format('Y-m-d'),
             'resignation_date'  => $this->resignationDate?->format('Y-m-d'),
             'active'            => $this->active,
+            'phone'             => $this->phone,
+            'email'             => $this->email,
+            'address'           => $this->address?->toArray(),
         ];
     }
 }

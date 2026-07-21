@@ -30,6 +30,9 @@ final class Director
      * @param DateTimeImmutable|null $resignationDate
      * @param bool                   $active
      * @param string|null            $companyUuid
+     * @param string|null            $phone
+     * @param string|null            $email
+     * @param RegisteredAddress|null $address
      */
     public function __construct(
         private readonly string $uuid,
@@ -40,7 +43,10 @@ final class Director
         private DateTimeImmutable $appointmentDate,
         private ?DateTimeImmutable $resignationDate = null,
         private bool $active = true,
-        private ?string $companyUuid = null
+        private ?string $companyUuid = null,
+        private ?string $phone = null,
+        private ?string $email = null,
+        private ?RegisteredAddress $address = null
     ) {
         $this->validate();
     }
@@ -236,6 +242,54 @@ final class Director
     }
 
     /**
+     * Get contact phone number.
+     */
+    public function getPhone(): ?string
+    {
+        return $this->phone;
+    }
+
+    /**
+     * Update contact phone number.
+     */
+    public function setPhone(?string $phone): void
+    {
+        $this->phone = $phone;
+    }
+
+    /**
+     * Get contact email address.
+     */
+    public function getEmail(): ?string
+    {
+        return $this->email;
+    }
+
+    /**
+     * Update contact email address.
+     */
+    public function setEmail(?string $email): void
+    {
+        $this->email = $email;
+    }
+
+    /**
+     * Get residential address.
+     */
+    public function getAddress(): ?RegisteredAddress
+    {
+        return $this->address;
+    }
+
+    /**
+     * Update residential address.
+     */
+    public function setAddress(?RegisteredAddress $address): void
+    {
+        $this->address = $address;
+    }
+
+    /**
      * Associate the director with a company.
      */
     public function assignToCompany(string $companyUuid): void
@@ -261,6 +315,9 @@ final class Director
             'appointment_date' => $this->appointmentDate->format('Y-m-d'),
             'resignation_date' => $this->resignationDate?->format('Y-m-d'),
             'active' => $this->active,
+            'phone' => $this->phone,
+            'email' => $this->email,
+            'address' => $this->address?->toArray(),
         ];
     }
 }

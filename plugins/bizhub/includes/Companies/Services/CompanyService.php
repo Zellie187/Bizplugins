@@ -7,6 +7,7 @@ namespace BizHub\Companies\Services;
 use BizHub\Companies\Contracts\CompanyRepositoryInterface;
 use BizHub\Companies\Contracts\CompanyServiceInterface;
 use BizHub\Companies\DTO\CompanyData;
+use BizHub\Companies\DTO\DirectorData;
 use BizHub\Companies\Entities\Company;
 use BizHub\Companies\Entities\Director;
 use BizHub\Companies\Entities\RegisteredAddress;
@@ -59,7 +60,11 @@ final class CompanyService implements CompanyServiceInterface
                     $directorData->passportNumber,
                     $directorData->appointmentDate,
                     $directorData->resignationDate,
-                    $directorData->active
+                    $directorData->active,
+                    companyUuid: null,
+                    phone: $directorData->phone,
+                    email: $directorData->email,
+                    address: $this->addressFromDirectorData($directorData)
                 )
             );
         }
@@ -132,6 +137,34 @@ final class CompanyService implements CompanyServiceInterface
     private function addressFromData(CompanyData $companyData): RegisteredAddress
     {
         $address = $companyData->registeredAddress;
+
+        return new RegisteredAddress(
+            $address->addressLine1,
+            $address->addressLine2,
+            $address->suburb,
+            $address->city,
+            $address->province,
+            $address->postalCode,
+            $address->country
+        );
+    }
+
+    /**
+     * Build a director's residential RegisteredAddress from a
+     * DirectorData DTO, or null if none was provided - a director's
+     * address is optional, unlike a company's.
+     */
+    private function addressFromDirectorData(DirectorData $directorData): ?RegisteredAddress
+    {
+        if (null === $directorData->address) {
+            return null;
+        }
+
+        $address = $directorData->address;
+
+        if ('' === trim($address->addressLine1) || '' === trim($address->city) || '' === trim($address->postalCode)) {
+            return null;
+        }
 
         return new RegisteredAddress(
             $address->addressLine1,
