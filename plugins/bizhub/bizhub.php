@@ -3,7 +3,7 @@
  * Plugin Name: BizHub
  * Plugin URI: https://bizupkeep.co.za
  * Description: Enterprise Business Management Platform.
- * Version: 0.2.5
+ * Version: 0.2.6
  * Author: BizUpKeep
  * Author URI: https://bizupkeep.co.za
  * Requires at least: 6.7

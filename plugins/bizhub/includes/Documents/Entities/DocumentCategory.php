@@ -17,6 +17,7 @@ enum DocumentCategory: string
     case TAX_CERTIFICATE = 'tax_certificate';
     case BANK_STATEMENT = 'bank_statement';
     case CONTRACT = 'contract';
+    case SIGNED_POA = 'signed_poa';
     case OTHER = 'other';
 
     /**
@@ -31,6 +32,7 @@ enum DocumentCategory: string
             self::TAX_CERTIFICATE => 'Tax Certificate',
             self::BANK_STATEMENT => 'Bank Statement',
             self::CONTRACT => 'Contract',
+            self::SIGNED_POA => 'Signed Power of Attorney',
             self::OTHER => 'Other',
         };
     }
