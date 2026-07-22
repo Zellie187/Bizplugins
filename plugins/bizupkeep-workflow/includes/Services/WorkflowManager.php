@@ -12,6 +12,7 @@ use BizHub\Workflow\Contracts\WorkflowDefinitionInterface;
 use BizHub\Workflow\Contracts\WorkflowEngineInterface;
 use BizHub\Workflow\Contracts\WorkflowRepositoryInterface;
 use BizHub\Workflow\DTO\CreateWorkflowCommand;
+use BizHub\Workflow\DTO\ForceStatusCommand;
 use BizHub\Workflow\DTO\RollbackWorkflowCommand;
 use BizHub\Workflow\DTO\Transition;
 use BizHub\Workflow\DTO\TransitionWorkflowCommand;
@@ -46,6 +47,15 @@ use DateTimeImmutable;
  */
 final class WorkflowManager implements WorkflowEngineInterface
 {
+    /**
+     * The action name recorded against a transition produced by
+     * forceStatus() - distinct from every action name a
+     * WorkflowDefinitionInterface declares, so it is unambiguous in a
+     * workflow's history that a step did not come from its normal
+     * guarded lifecycle.
+     */
+    public const ACTION_ADMIN_OVERRIDE = 'admin_override';
+
     /**
      * @var array<string,WorkflowDefinitionInterface>
      */
@@ -228,6 +238,68 @@ final class WorkflowManager implements WorkflowEngineInterface
         ]);
 
         $this->events->dispatch(new WorkflowRolledBack($workflow, $command->reason));
+
+        return $workflow;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function forceStatus(ForceStatusCommand $command): WorkflowInstance
+    {
+        $workflow = $this->findOrFail($command->workflowUuid);
+
+        if ($workflow->isTerminal()) {
+            throw new InvalidTransitionException(sprintf(
+                'Cannot override workflow "%s": it has already reached a terminal status ("%s").',
+                $workflow->getUuid(),
+                $workflow->getStatus()->value
+            ));
+        }
+
+        if ($workflow->getStatus() === $command->to) {
+            throw new InvalidTransitionException(sprintf(
+                'Workflow "%s" is already at status "%s".',
+                $workflow->getUuid(),
+                $command->to->value
+            ));
+        }
+
+        $transition = new Transition(
+            Uuid::generate(),
+            $workflow->getUuid(),
+            $workflow->getStatus(),
+            $command->to,
+            self::ACTION_ADMIN_OVERRIDE,
+            $command->actorId,
+            $command->reason,
+            [],
+            new DateTimeImmutable()
+        );
+
+        $workflow->applyTransition($transition);
+
+        $this->repository->save($workflow);
+        $this->repository->recordTransition($transition);
+
+        $this->logger->warning('bizupkeep_workflow.admin_override', [
+            'workflow_uuid' => $workflow->getUuid(),
+            'workflow_type' => $workflow->getWorkflowType(),
+            'from_status' => $transition->from?->value,
+            'to_status' => $transition->to->value,
+            'user_id' => $command->actorId,
+            'reason' => $command->reason,
+        ]);
+
+        $this->events->dispatch(new WorkflowTransitioned($workflow, $transition));
+
+        if ($command->to === WorkflowStatus::Completed) {
+            $this->events->dispatch(new WorkflowCompleted($workflow));
+        }
+
+        if ($command->to->isTerminal() && ! $command->to->isSuccessful()) {
+            $this->events->dispatch(new WorkflowCancelled($workflow, $command->reason));
+        }
 
         return $workflow;
     }

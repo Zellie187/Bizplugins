@@ -9,6 +9,7 @@ use BizHub\Workflow\Contracts\WorkflowEngineInterface;
 use BizHub\Workflow\Contracts\WorkflowRepositoryInterface;
 use BizHub\Workflow\Contracts\WorkflowTypeServiceInterface;
 use BizHub\Workflow\DTO\CreateWorkflowCommand;
+use BizHub\Workflow\DTO\ForceStatusCommand;
 use BizHub\Workflow\DTO\RollbackWorkflowCommand;
 use BizHub\Workflow\DTO\TransitionWorkflowCommand;
 use BizHub\Workflow\Entities\WorkflowInstance;
@@ -138,6 +139,23 @@ final class AnnualReturnService implements WorkflowTypeServiceInterface
 
         return $this->workflowEngine->rollback(
             new RollbackWorkflowCommand($workflowUuid, $userId, $reason)
+        );
+    }
+
+    /**
+     * Force an Annual Return workflow directly to a given status,
+     * bypassing its normal guarded transitions.
+     */
+    public function forceStatus(
+        string $workflowUuid,
+        WorkflowStatus $to,
+        int $userId,
+        string $reason
+    ): WorkflowInstance {
+        $this->assertIsAnnualReturn($this->workflowEngine->find($workflowUuid));
+
+        return $this->workflowEngine->forceStatus(
+            new ForceStatusCommand($workflowUuid, $to, $userId, $reason)
         );
     }
 

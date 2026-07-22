@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace BizHub\Workflow\Admin;
 
+use BizHub\Companies\Contracts\CompanyServiceInterface;
+use BizHub\Companies\Exceptions\CompanyNotFoundException;
 use BizHub\Workflow\Contracts\WorkflowRepositoryInterface;
 use BizHub\Workflow\DTO\WorkflowSummary;
+use BizHub\Workflow\Enums\WorkflowStatus;
 use BizHub\Workflow\Policies\Capabilities;
 use BizHub\Workflow\Workflows\AnnualReturn\AnnualReturnDefinition;
 use BizHub\Workflow\Workflows\CompanyAmendment\CompanyAmendmentDefinition;
 use BizHub\Workflow\Workflows\CompanyRegistration\CompanyRegistrationDefinition;
+use DateTimeImmutable;
 
 /**
  * Registers BizUpKeep Workflow's admin screen as a submenu of BizHub's
@@ -28,6 +32,15 @@ final class WorkflowAdminMenu
         CompanyAmendmentDefinition::TYPE,
         AnnualReturnDefinition::TYPE,
     ];
+
+    /**
+     * How many days a non-terminal workflow may sit without an update
+     * before its row is flagged as overdue. Deliberately generous - a
+     * business-day-scale heuristic, not a strict SLA - so staff can
+     * spot applications that have stalled without every legitimately
+     * slow filing (e.g. awaiting a client's documents) being flagged.
+     */
+    private const OVERDUE_DAYS = 7;
 
     /**
      * Register the 'admin_menu' hook.
@@ -62,11 +75,18 @@ final class WorkflowAdminMenu
 
         $application = function_exists('bizhub') ? bizhub() : null;
         $repository = $application?->container()->get(WorkflowRepositoryInterface::class);
+        $companies = $application?->container()->get(CompanyServiceInterface::class);
+
+        $statusFilter = $this->statusFilterFromRequest();
 
         $summaries = [];
 
         foreach (self::LISTED_TYPES as $type) {
-            foreach ($repository?->summaries($type) ?? [] as $summary) {
+            $typeSummaries = $statusFilter !== null
+                ? ($repository?->summariesByStatus($type, $statusFilter, 500) ?? [])
+                : ($repository?->summaries($type, 500) ?? []);
+
+            foreach ($typeSummaries as $summary) {
                 $summaries[] = $summary;
             }
         }
@@ -79,10 +99,12 @@ final class WorkflowAdminMenu
 
         echo '<div class="wrap">';
         echo '<h1>' . esc_html__('Workflows', 'bizupkeep-workflow') . '</h1>';
+
+        $this->renderStatusFilter($statusFilter);
+
         echo '<table class="wp-list-table widefat fixed striped">';
         echo '<thead><tr>'
             . '<th>' . esc_html__('Type', 'bizupkeep-workflow') . '</th>'
-            . '<th>' . esc_html__('UUID', 'bizupkeep-workflow') . '</th>'
             . '<th>' . esc_html__('Company', 'bizupkeep-workflow') . '</th>'
             . '<th>' . esc_html__('Status', 'bizupkeep-workflow') . '</th>'
             . '<th>' . esc_html__('Created', 'bizupkeep-workflow') . '</th>'
@@ -91,10 +113,12 @@ final class WorkflowAdminMenu
             . '</tr></thead><tbody>';
 
         if ($summaries === []) {
-            echo '<tr><td colspan="7">'
+            echo '<tr><td colspan="6">'
                 . esc_html__('No workflows yet.', 'bizupkeep-workflow')
                 . '</td></tr>';
         }
+
+        $now = new DateTimeImmutable();
 
         foreach ($summaries as $summary) {
             $viewUrl = add_query_arg(
@@ -102,11 +126,23 @@ final class WorkflowAdminMenu
                 admin_url('admin.php')
             );
 
-            echo '<tr>';
+            $companyLabel = $this->companyLabel($companies, $summary->subjectUuid);
+
+            $isOverdue = ! $summary->status->isTerminal()
+                && ($summary->updatedAt ?? $summary->createdAt)->diff($now)->days >= self::OVERDUE_DAYS;
+
+            echo '<tr' . ($isOverdue ? ' style="background-color:#fcf0f1;"' : '') . '>';
             echo '<td>' . esc_html(self::typeLabel($summary->workflowType)) . '</td>';
-            echo '<td>' . esc_html($summary->uuid) . '</td>';
-            echo '<td>' . esc_html($summary->subjectUuid) . '</td>';
-            echo '<td>' . esc_html($summary->status->label()) . '</td>';
+            echo '<td>' . esc_html($companyLabel) . '</td>';
+            echo '<td>' . esc_html($summary->status->label());
+
+            if ($isOverdue) {
+                echo ' <span style="color:#b32d2e;font-weight:600;">'
+                    . esc_html__('(overdue)', 'bizupkeep-workflow')
+                    . '</span>';
+            }
+
+            echo '</td>';
             echo '<td>' . esc_html($summary->createdAt->format('Y-m-d H:i')) . '</td>';
             echo '<td>' . esc_html($summary->updatedAt?->format('Y-m-d H:i') ?? '') . '</td>';
             echo '<td><a class="button" href="' . esc_url($viewUrl) . '">'
@@ -115,6 +151,66 @@ final class WorkflowAdminMenu
         }
 
         echo '</tbody></table></div>';
+    }
+
+    /**
+     * Render a simple GET-based status filter dropdown, preserving the
+     * page slug so choosing an option reloads the list filtered to it.
+     */
+    private function renderStatusFilter(?WorkflowStatus $current): void
+    {
+        echo '<form method="get" style="margin-bottom:1em;">';
+        echo '<input type="hidden" name="page" value="' . esc_attr('bizupkeep-workflow') . '" />';
+        echo '<label for="bizupkeep-workflow-status-filter">'
+            . esc_html__('Status:', 'bizupkeep-workflow') . '</label> ';
+        echo '<select id="bizupkeep-workflow-status-filter" name="status" onchange="this.form.submit()">';
+        echo '<option value="">' . esc_html__('All', 'bizupkeep-workflow') . '</option>';
+
+        foreach (WorkflowStatus::cases() as $status) {
+            echo '<option value="' . esc_attr($status->value) . '"'
+                . selected($current?->value, $status->value, false) . '>'
+                . esc_html($status->label()) . '</option>';
+        }
+
+        echo '</select> <noscript><button type="submit" class="button">'
+            . esc_html__('Filter', 'bizupkeep-workflow') . '</button></noscript>';
+        echo '</form>';
+    }
+
+    /**
+     * Parse the 'status' query arg into a WorkflowStatus, or null for
+     * "All" / an unrecognized value.
+     */
+    private function statusFilterFromRequest(): ?WorkflowStatus
+    {
+        $raw = isset($_GET['status']) ? sanitize_text_field(wp_unslash($_GET['status'])) : '';
+
+        foreach (WorkflowStatus::cases() as $status) {
+            if ($status->value === $raw) {
+                return $status;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve a workflow's subject UUID to its company name, falling
+     * back to the raw UUID if the company record is missing or the
+     * Companies module is unavailable - staff reviewing this list need
+     * to recognise applications by name, not by an opaque identifier.
+     */
+    private function companyLabel(?CompanyServiceInterface $companies, string $companyUuid): string
+    {
+        if ($companies === null) {
+            return $companyUuid;
+        }
+
+        try {
+            return $companies->getCompany($companyUuid)->getCompanyName();
+        } catch (CompanyNotFoundException) {
+            return $companyUuid;
+        }
     }
 
     private static function typeLabel(string $workflowType): string

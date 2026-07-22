@@ -161,6 +161,39 @@ final class Document
     }
 
     /**
+     * Remove a single stored version, e.g. to correct one bad upload
+     * without losing the rest of the document's history. Refuses to
+     * remove the last remaining version - a document with zero
+     * versions is not a meaningful state; delete the whole document
+     * instead.
+     *
+     * @throws InvalidArgumentException If the version does not belong to this
+     *                                   document, or it is the only one left.
+     */
+    public function removeVersion(string $versionUuid): void
+    {
+        if (count($this->versions) <= 1) {
+            throw new InvalidArgumentException(
+                'Cannot remove the only remaining version of a document; delete the document instead.'
+            );
+        }
+
+        foreach ($this->versions as $index => $version) {
+            if ($version->uuid === $versionUuid) {
+                unset($this->versions[$index]);
+                $this->versions = array_values($this->versions);
+                $this->touch();
+
+                return;
+            }
+        }
+
+        throw new InvalidArgumentException(
+            sprintf('Version "%s" does not belong to this document.', $versionUuid)
+        );
+    }
+
+    /**
      * Get creation timestamp.
      */
     public function getCreatedAt(): DateTimeImmutable

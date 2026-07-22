@@ -34,4 +34,10 @@ interface DocumentRepositoryInterface
      * Delete a document.
      */
     public function delete(Document $document): void;
+
+    /**
+     * Delete a single stored version row, without touching the parent
+     * document or its other versions.
+     */
+    public function deleteVersion(string $versionUuid): void;
 }

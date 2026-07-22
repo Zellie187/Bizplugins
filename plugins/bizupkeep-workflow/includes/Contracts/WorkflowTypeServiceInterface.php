@@ -6,6 +6,8 @@ namespace BizHub\Workflow\Contracts;
 
 use BizHub\Workflow\DTO\Transition;
 use BizHub\Workflow\Entities\WorkflowInstance;
+use BizHub\Workflow\Enums\WorkflowStatus;
+use BizHub\Workflow\Exceptions\InvalidTransitionException;
 use BizHub\Workflow\Exceptions\ValidationException;
 use BizHub\Workflow\Exceptions\WorkflowNotFoundException;
 
@@ -48,6 +50,24 @@ interface WorkflowTypeServiceInterface
      * Roll a workflow instance of this type back to its previous status.
      */
     public function rollback(string $workflowUuid, int $userId, string $reason): WorkflowInstance;
+
+    /**
+     * Force a workflow instance of this type directly to a given
+     * status, bypassing its normal guarded transitions - a staff
+     * "unstick" tool, gated by the caller at the stricter
+     * Capabilities::WORKFLOW_MANAGE rather than WORKFLOW_TRANSITION.
+     *
+     * @throws WorkflowNotFoundException  If the workflow does not exist or is not of
+     *                                     this type.
+     * @throws InvalidTransitionException If the workflow is already terminal, or
+     *                                     already at the requested status.
+     */
+    public function forceStatus(
+        string $workflowUuid,
+        WorkflowStatus $to,
+        int $userId,
+        string $reason
+    ): WorkflowInstance;
 
     /**
      * Retrieve a workflow instance of this type.

@@ -99,6 +99,42 @@ final class DocumentService
     }
 
     /**
+     * Delete a single stored version of a document - e.g. to correct
+     * one bad upload without losing the rest of the document's
+     * history - leaving the document and its remaining versions
+     * intact. Use deleteDocument() instead if this is the only
+     * version.
+     *
+     * @throws DocumentNotFoundException If the document does not exist.
+     * @throws \InvalidArgumentException If the version does not belong to this
+     *                                    document, or it is the only one left.
+     */
+    public function deleteVersion(string $documentUuid, string $versionUuid): void
+    {
+        $document = $this->getDocument($documentUuid);
+
+        $target = null;
+
+        foreach ($document->getVersions() as $version) {
+            if ($version->uuid === $versionUuid) {
+                $target = $version;
+
+                break;
+            }
+        }
+
+        // Validates the version belongs to this document and is not the
+        // last one remaining, before any file/row is actually removed.
+        $document->removeVersion($versionUuid);
+
+        if ($target !== null) {
+            $this->storage->delete($target->filePath);
+        }
+
+        $this->documents->deleteVersion($versionUuid);
+    }
+
+    /**
      * Store a file and attach it to a document as a new version.
      */
     private function attachVersion(

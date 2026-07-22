@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BizHub\Workflow\Contracts;
 
 use BizHub\Workflow\DTO\CreateWorkflowCommand;
+use BizHub\Workflow\DTO\ForceStatusCommand;
 use BizHub\Workflow\DTO\RollbackWorkflowCommand;
 use BizHub\Workflow\DTO\Transition;
 use BizHub\Workflow\DTO\TransitionWorkflowCommand;
@@ -44,6 +45,17 @@ interface WorkflowEngineInterface
      * @throws InvalidTransitionException
      */
     public function rollback(RollbackWorkflowCommand $command): WorkflowInstance;
+
+    /**
+     * Force a workflow instance directly to a given status, bypassing
+     * its definition's transition rules and guard. See
+     * ForceStatusCommand for when this is appropriate.
+     *
+     * @throws WorkflowNotFoundException
+     * @throws InvalidTransitionException If the workflow is already terminal, or
+     *                                     already at the requested status.
+     */
+    public function forceStatus(ForceStatusCommand $command): WorkflowInstance;
 
     /**
      * Retrieve a workflow instance by UUID.

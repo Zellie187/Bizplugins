@@ -89,6 +89,14 @@ final class DocumentRepository implements DocumentRepositoryInterface
     }
 
     /**
+     * {@inheritDoc}
+     */
+    public function deleteVersion(string $versionUuid): void
+    {
+        $this->database->delete(self::VERSIONS_TABLE, ['uuid' => $versionUuid]);
+    }
+
+    /**
      * Hydrate a database row into a Document aggregate, including its
      * version history.
      *

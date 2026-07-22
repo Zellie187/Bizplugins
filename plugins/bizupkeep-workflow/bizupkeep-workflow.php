@@ -4,7 +4,7 @@
  * Plugin Name:       BizUpKeep Workflow
  * Plugin URI:        https://bizupkeep.co.za
  * Description:       Business process automation and workflow engine for the BizUpKeep platform. Extends the BizHub Framework with a workflow-driven, event-driven business process layer.
- * Version:           1.6.0
+ * Version:           1.7.0
  * Requires at least: 6.7
  * Requires PHP:      8.2
  * Requires Plugins:  bizhub, bizupkeep-core
@@ -24,7 +24,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('BIZUPKEEP_WORKFLOW_VERSION', '1.6.0');
+define('BIZUPKEEP_WORKFLOW_VERSION', '1.7.0');
 define('BIZUPKEEP_WORKFLOW_FILE', __FILE__);
 define('BIZUPKEEP_WORKFLOW_PATH', plugin_dir_path(__FILE__));
 define('BIZUPKEEP_WORKFLOW_URL', plugin_dir_url(__FILE__));
@@ -33,6 +33,7 @@ define('BIZUPKEEP_WORKFLOW_BASENAME', plugin_basename(__FILE__));
 require_once BIZUPKEEP_WORKFLOW_PATH . 'vendor/autoload.php';
 
 use BizHub\Workflow\Admin\Providers\QualityReviewAdminServiceProvider;
+use BizHub\Workflow\Admin\Providers\WorkflowDashboardAdminServiceProvider;
 use BizHub\Workflow\Bootstrap\Constants;
 use BizHub\Workflow\Bootstrap\DependencyGuard;
 use BizHub\Workflow\Bootstrap\Plugin;
@@ -110,6 +111,7 @@ add_action(
         $providerRegistry->add(CompanyAmendmentServiceProvider::class);
         $providerRegistry->add(AnnualReturnServiceProvider::class);
         $providerRegistry->add(QualityReviewAdminServiceProvider::class);
+        $providerRegistry->add(WorkflowDashboardAdminServiceProvider::class);
     },
     10,
     2

@@ -8,9 +8,11 @@ use BizHub\Companies\Contracts\CompanyServiceInterface;
 use BizHub\Workflow\Contracts\WorkflowEngineInterface;
 use BizHub\Workflow\Contracts\WorkflowTypeServiceInterface;
 use BizHub\Workflow\DTO\CreateWorkflowCommand;
+use BizHub\Workflow\DTO\ForceStatusCommand;
 use BizHub\Workflow\DTO\RollbackWorkflowCommand;
 use BizHub\Workflow\DTO\TransitionWorkflowCommand;
 use BizHub\Workflow\Entities\WorkflowInstance;
+use BizHub\Workflow\Enums\WorkflowStatus;
 use BizHub\Workflow\Exceptions\ValidationException;
 use BizHub\Workflow\Exceptions\WorkflowNotFoundException;
 
@@ -113,6 +115,23 @@ final class CompanyRegistrationService implements WorkflowTypeServiceInterface
 
         return $this->workflowEngine->rollback(
             new RollbackWorkflowCommand($workflowUuid, $userId, $reason)
+        );
+    }
+
+    /**
+     * Force a Company Registration workflow directly to a given
+     * status, bypassing its normal guarded transitions.
+     */
+    public function forceStatus(
+        string $workflowUuid,
+        WorkflowStatus $to,
+        int $userId,
+        string $reason
+    ): WorkflowInstance {
+        $this->assertIsCompanyRegistration($this->workflowEngine->find($workflowUuid));
+
+        return $this->workflowEngine->forceStatus(
+            new ForceStatusCommand($workflowUuid, $to, $userId, $reason)
         );
     }
 

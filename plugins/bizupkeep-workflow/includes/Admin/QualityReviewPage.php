@@ -64,6 +64,18 @@ final class QualityReviewPage
 
     private const QUOTE_NONCE_FIELD = 'bizupkeep_workflow_send_quote_nonce';
 
+    private const FORCE_STATUS_NONCE_ACTION = 'bizupkeep_workflow_force_status';
+
+    private const FORCE_STATUS_NONCE_FIELD = 'bizupkeep_workflow_force_status_nonce';
+
+    private const DELETE_VERSION_NONCE_ACTION = 'bizupkeep_workflow_delete_version';
+
+    private const DELETE_VERSION_NONCE_FIELD = 'bizupkeep_workflow_delete_version_nonce';
+
+    private const BULK_NONCE_ACTION = 'bizupkeep_workflow_bulk_review';
+
+    private const BULK_NONCE_FIELD = 'bizupkeep_workflow_bulk_review_nonce';
+
     /**
      * Matches the client-facing upload form's own allowed types
      * (functions.php's bizupkeep_child_validate_uploaded_file()) - a
@@ -168,7 +180,10 @@ final class QualityReviewPage
         }
 
         $notice = $this->handleDocumentUpload($userId)
+            ?? $this->handleVersionDelete($userId)
             ?? $this->handleSendQuote($userId)
+            ?? $this->handleForceStatus($userId)
+            ?? $this->handleBulkAction($userId)
             ?? $this->handleSubmission($userId);
 
         echo '<div class="wrap"><h1>' . esc_html__('Quality Review', 'bizupkeep-workflow') . '</h1>';
@@ -296,26 +311,15 @@ final class QualityReviewPage
         }
 
         $workflowUuid = isset($_POST['workflow']) ? sanitize_text_field(wp_unslash($_POST['workflow'])) : '';
+        $targetDocumentUuid = isset($_POST['target_document'])
+            ? sanitize_text_field(wp_unslash($_POST['target_document']))
+            : '';
         $categoryRaw = isset($_POST['category']) ? sanitize_text_field(wp_unslash($_POST['category'])) : '';
 
         $workflow = $this->workflows->find($workflowUuid);
 
         if ($workflow === null || ! in_array($workflow->getWorkflowType(), self::REVIEWED_TYPES, true)) {
             return ['error', __('That application could not be found.', 'bizupkeep-workflow')];
-        }
-
-        $category = null;
-
-        foreach (DocumentCategory::cases() as $case) {
-            if ($case->value === $categoryRaw) {
-                $category = $case;
-
-                break;
-            }
-        }
-
-        if ($category === null) {
-            return ['error', __('Please choose a document type.', 'bizupkeep-workflow')];
         }
 
         try {
@@ -331,6 +335,49 @@ final class QualityReviewPage
                 'That upload could not be processed - please check the file (PDF, JPG or PNG, max 10MB) and try again.',
                 'bizupkeep-workflow'
             )];
+        }
+
+        /*
+         * Replace flow (see renderReplaceVersionForm()): attach the
+         * upload as a new version of an existing document instead of
+         * creating a brand-new one. The category picker plays no part
+         * here - the document already has one.
+         */
+        if ($targetDocumentUuid !== '') {
+            try {
+                $document = $this->documents->getDocument($targetDocumentUuid);
+            } catch (DocumentNotFoundException) {
+                return ['error', __('That document could not be found.', 'bizupkeep-workflow')];
+            }
+
+            if ($document->getOwnerType() !== 'company' || $document->getOwnerUuid() !== $company->getUuid()) {
+                return ['error', __('That document does not belong to this application.', 'bizupkeep-workflow')];
+            }
+
+            try {
+                $this->documents->addVersion($targetDocumentUuid, $file['tmp_name'], $file['name'], $userId);
+            } catch (\Throwable $exception) {
+                return ['error', __(
+                    'That upload could not be processed - please check the file (PDF, JPG or PNG, max 10MB) and try again.',
+                    'bizupkeep-workflow'
+                )];
+            }
+
+            return ['success', __('New version uploaded.', 'bizupkeep-workflow')];
+        }
+
+        $category = null;
+
+        foreach (DocumentCategory::cases() as $case) {
+            if ($case->value === $categoryRaw) {
+                $category = $case;
+
+                break;
+            }
+        }
+
+        if ($category === null) {
+            return ['error', __('Please choose a document type.', 'bizupkeep-workflow')];
         }
 
         try {
@@ -351,6 +398,66 @@ final class QualityReviewPage
         }
 
         return ['success', __('Document uploaded.', 'bizupkeep-workflow')];
+    }
+
+    /**
+     * Handle a single-version delete POST submission (see
+     * renderDeleteVersionButton()) - lets staff remove one bad upload
+     * without losing the document's other versions/history. Refuses
+     * (via DocumentService::deleteVersion()) to remove a document's
+     * only remaining version - use the existing whole-document delete
+     * path for that instead.
+     *
+     * @return array{0:string,1:string}|null
+     */
+    private function handleVersionDelete(int $userId): ?array
+    {
+        if (! isset($_POST[self::DELETE_VERSION_NONCE_FIELD])) {
+            return null;
+        }
+
+        $nonce = sanitize_text_field(wp_unslash($_POST[self::DELETE_VERSION_NONCE_FIELD]));
+
+        if (! wp_verify_nonce($nonce, self::DELETE_VERSION_NONCE_ACTION)) {
+            return ['error', __('Security check failed. Please try again.', 'bizupkeep-workflow')];
+        }
+
+        if (! $this->authorization->can($userId, Capabilities::WORKFLOW_TRANSITION)) {
+            return ['error', __('You are not permitted to delete documents.', 'bizupkeep-workflow')];
+        }
+
+        $workflowUuid = isset($_POST['workflow']) ? sanitize_text_field(wp_unslash($_POST['workflow'])) : '';
+        $documentUuid = isset($_POST['target_document'])
+            ? sanitize_text_field(wp_unslash($_POST['target_document']))
+            : '';
+        $versionUuid = isset($_POST['version']) ? sanitize_text_field(wp_unslash($_POST['version'])) : '';
+
+        $workflow = $this->workflows->find($workflowUuid);
+
+        if ($workflow === null || ! in_array($workflow->getWorkflowType(), self::REVIEWED_TYPES, true)) {
+            return ['error', __('That application could not be found.', 'bizupkeep-workflow')];
+        }
+
+        try {
+            $company = $this->companies->getCompany($workflow->getSubjectUuid());
+            $document = $this->documents->getDocument($documentUuid);
+        } catch (CompanyNotFoundException | DocumentNotFoundException) {
+            return ['error', __('That document could not be found.', 'bizupkeep-workflow')];
+        }
+
+        if ($document->getOwnerType() !== 'company' || $document->getOwnerUuid() !== $company->getUuid()) {
+            return ['error', __('That document does not belong to this application.', 'bizupkeep-workflow')];
+        }
+
+        try {
+            $this->documents->deleteVersion($documentUuid, $versionUuid);
+        } catch (DocumentNotFoundException) {
+            return ['error', __('That document could not be found.', 'bizupkeep-workflow')];
+        } catch (\InvalidArgumentException $exception) {
+            return ['error', $exception->getMessage()];
+        }
+
+        return ['success', __('Version deleted.', 'bizupkeep-workflow')];
     }
 
     /**
@@ -472,6 +579,180 @@ final class QualityReviewPage
     }
 
     /**
+     * Handle the "Override Status" POST submission (see
+     * renderForceStatusForm()) - the staff "unstick a workflow" escape
+     * hatch, gated by the stricter Capabilities::WORKFLOW_MANAGE rather
+     * than WORKFLOW_TRANSITION since it bypasses every normal guard.
+     *
+     * @return array{0:string,1:string}|null
+     */
+    private function handleForceStatus(int $userId): ?array
+    {
+        if (! isset($_POST[self::FORCE_STATUS_NONCE_FIELD])) {
+            return null;
+        }
+
+        $nonce = sanitize_text_field(wp_unslash($_POST[self::FORCE_STATUS_NONCE_FIELD]));
+
+        if (! wp_verify_nonce($nonce, self::FORCE_STATUS_NONCE_ACTION)) {
+            return ['error', __('Security check failed. Please try again.', 'bizupkeep-workflow')];
+        }
+
+        if (! $this->authorization->can($userId, Capabilities::WORKFLOW_MANAGE)) {
+            return ['error', __('You are not permitted to override an application status.', 'bizupkeep-workflow')];
+        }
+
+        $workflowUuid = isset($_POST['workflow']) ? sanitize_text_field(wp_unslash($_POST['workflow'])) : '';
+        $statusRaw = isset($_POST['force_status']) ? sanitize_text_field(wp_unslash($_POST['force_status'])) : '';
+        $reason = isset($_POST['force_reason']) ? sanitize_textarea_field(wp_unslash($_POST['force_reason'])) : '';
+
+        $workflow = $this->workflows->find($workflowUuid);
+
+        if ($workflow === null || ! in_array($workflow->getWorkflowType(), self::REVIEWED_TYPES, true)) {
+            return ['error', __('That application could not be found.', 'bizupkeep-workflow')];
+        }
+
+        $status = null;
+
+        foreach (WorkflowStatus::cases() as $case) {
+            if ($case->value === $statusRaw) {
+                $status = $case;
+
+                break;
+            }
+        }
+
+        if ($status === null) {
+            return ['error', __('Please choose a status.', 'bizupkeep-workflow')];
+        }
+
+        if (trim($reason) === '') {
+            return ['error', __('A reason is required to override a status.', 'bizupkeep-workflow')];
+        }
+
+        try {
+            $this->serviceFor($workflow->getWorkflowType())->forceStatus($workflowUuid, $status, $userId, $reason);
+
+            return ['success', __('Status overridden.', 'bizupkeep-workflow')];
+        } catch (InvalidTransitionException $exception) {
+            return ['error', $exception->getMessage()];
+        } catch (WorkflowNotFoundException $exception) {
+            return ['error', __('That application could not be found.', 'bizupkeep-workflow')];
+        }
+    }
+
+    /**
+     * Handle a bulk Approve/Reject POST submission from the review
+     * queue (see renderQueue()) - applies the same action and reason to
+     * every selected workflow in one pass, since staff working through
+     * a backlog need to clear straightforward cases without opening
+     * each one individually. Every row in the queue is already in
+     * QualityReview (pendingReviews() guarantees that), so unlike
+     * handleSubmission() there is no per-row status check - only
+     * whether each row's workflow type actually supports the requested
+     * action (Annual Return has no Reject action).
+     *
+     * @return array{0:string,1:string}|null
+     */
+    private function handleBulkAction(int $userId): ?array
+    {
+        if (! isset($_POST[self::BULK_NONCE_FIELD])) {
+            return null;
+        }
+
+        $nonce = sanitize_text_field(wp_unslash($_POST[self::BULK_NONCE_FIELD]));
+
+        if (! wp_verify_nonce($nonce, self::BULK_NONCE_ACTION)) {
+            return ['error', __('Security check failed. Please try again.', 'bizupkeep-workflow')];
+        }
+
+        if (! $this->authorization->can($userId, Capabilities::WORKFLOW_TRANSITION)) {
+            return ['error', __('You are not permitted to review applications.', 'bizupkeep-workflow')];
+        }
+
+        $bulkAction = isset($_POST['bulk_action']) ? sanitize_text_field(wp_unslash($_POST['bulk_action'])) : '';
+
+        if (! in_array($bulkAction, [self::ACTION_APPROVE, self::ACTION_REJECT], true)) {
+            return null;
+        }
+
+        $reason = isset($_POST['bulk_reason']) ? sanitize_textarea_field(wp_unslash($_POST['bulk_reason'])) : '';
+
+        if ($bulkAction === self::ACTION_REJECT && trim($reason) === '') {
+            return ['error', __('A reason is required to bulk reject applications.', 'bizupkeep-workflow')];
+        }
+
+        $uuids = isset($_POST['workflow_uuids']) && is_array($_POST['workflow_uuids'])
+            ? array_values(array_filter(array_map('sanitize_text_field', wp_unslash($_POST['workflow_uuids']))))
+            : [];
+
+        if ($uuids === []) {
+            return ['error', __('Select at least one application.', 'bizupkeep-workflow')];
+        }
+
+        $succeeded = 0;
+        $errors = [];
+
+        foreach ($uuids as $uuid) {
+            $workflow = $this->workflows->find($uuid);
+
+            if ($workflow === null || ! in_array($workflow->getWorkflowType(), self::REVIEWED_TYPES, true)) {
+                $errors[] = __('An application could not be found.', 'bizupkeep-workflow');
+
+                continue;
+            }
+
+            $isBulkReject = $bulkAction === self::ACTION_REJECT;
+            $isRejectable = in_array($workflow->getWorkflowType(), self::REJECTABLE_TYPES, true);
+
+            if ($isBulkReject && ! $isRejectable) {
+                $errors[] = sprintf(
+                    /* translators: %s: workflow type label, e.g. "Annual Return" */
+                    __('%s applications cannot be rejected.', 'bizupkeep-workflow'),
+                    $this->typeLabel($workflow->getWorkflowType())
+                );
+
+                continue;
+            }
+
+            $context = $bulkAction === self::ACTION_APPROVE ? ['reviewed_by' => $this->currentUserLabel()] : [];
+
+            try {
+                $this->serviceFor($workflow->getWorkflowType())
+                    ->performAction($uuid, $bulkAction, $userId, $reason, $context);
+
+                $succeeded++;
+            } catch (ValidationException | PreconditionFailedException | InvalidTransitionException $exception) {
+                $errors[] = $exception->getMessage();
+            }
+        }
+
+        $summary = $bulkAction === self::ACTION_APPROVE
+            ? sprintf(
+                /* translators: %d: number of applications approved */
+                _n('%d application approved.', '%d applications approved.', $succeeded, 'bizupkeep-workflow'),
+                $succeeded
+            )
+            : sprintf(
+                /* translators: %d: number of applications rejected */
+                _n('%d application rejected.', '%d applications rejected.', $succeeded, 'bizupkeep-workflow'),
+                $succeeded
+            );
+
+        if ($errors !== []) {
+            $summary .= ' ' . sprintf(
+                /* translators: %s: semicolon-separated list of per-row error messages */
+                __('Some rows were skipped: %s', 'bizupkeep-workflow'),
+                implode('; ', array_slice($errors, 0, 5))
+            );
+
+            return [$succeeded > 0 ? 'warning' : 'error', $summary];
+        }
+
+        return ['success', $summary];
+    }
+
+    /**
      * Render the queue of applications awaiting quality review.
      */
     private function renderQueue(): void
@@ -486,8 +767,35 @@ final class QualityReviewPage
             return;
         }
 
+        /*
+         * Every row here already sits in QualityReview (pendingReviews()
+         * guarantees that), so the whole table is wrapped in one form:
+         * a checkbox per row plus the two bulk buttons below let staff
+         * clear a backlog of straightforward cases without opening each
+         * application individually. handleBulkAction() re-validates
+         * every selected row server-side (e.g. Annual Return can't be
+         * bulk-rejected any more than it can be rejected one at a time).
+         */
+        echo '<form method="post">';
+        wp_nonce_field(self::BULK_NONCE_ACTION, self::BULK_NONCE_FIELD);
+
+        echo '<p><label for="bizupkeep-bulk-reason">' . esc_html__(
+            'Reason (required for Bulk Reject - applied to every selected row)',
+            'bizupkeep-workflow'
+        ) . '</label><br />'
+            . '<textarea id="bizupkeep-bulk-reason" name="bulk_reason" rows="2" class="large-text"></textarea></p>';
+
+        echo '<p>'
+            . '<button type="submit" name="bulk_action" value="' . esc_attr(self::ACTION_APPROVE) . '" '
+            . 'class="button button-primary">' . esc_html__('Bulk Approve Selected', 'bizupkeep-workflow')
+            . '</button> '
+            . '<button type="submit" name="bulk_action" value="' . esc_attr(self::ACTION_REJECT) . '" class="button">'
+            . esc_html__('Bulk Reject Selected', 'bizupkeep-workflow') . '</button>'
+            . '</p>';
+
         echo '<table class="wp-list-table widefat fixed striped">';
         echo '<thead><tr>'
+            . '<th class="check-column"></th>'
             . '<th>' . esc_html__('Type', 'bizupkeep-workflow') . '</th>'
             . '<th>' . esc_html__('Company', 'bizupkeep-workflow') . '</th>'
             . '<th>' . esc_html__('Registration No.', 'bizupkeep-workflow') . '</th>'
@@ -508,6 +816,7 @@ final class QualityReviewPage
             );
 
             echo '<tr>'
+                . '<td><input type="checkbox" name="workflow_uuids[]" value="' . esc_attr($summary->uuid) . '" /></td>'
                 . '<td>' . esc_html($this->typeLabel($summary->workflowType)) . '</td>'
                 . '<td>' . esc_html($companyName) . '</td>'
                 . '<td>' . esc_html($regNumber) . '</td>'
@@ -519,6 +828,7 @@ final class QualityReviewPage
         }
 
         echo '</tbody></table>';
+        echo '</form>';
     }
 
     /**
@@ -577,6 +887,13 @@ final class QualityReviewPage
 
         if ($workflow->getStatus() === WorkflowStatus::QualityReview) {
             $this->renderReviewForm($workflow);
+        }
+
+        if (
+            ! $workflow->isTerminal()
+            && $this->authorization->can(get_current_user_id(), Capabilities::WORKFLOW_MANAGE)
+        ) {
+            $this->renderForceStatusForm($workflow);
         }
     }
 
@@ -747,6 +1064,12 @@ final class QualityReviewPage
         echo '<tr><th>' . esc_html($label) . '</th><td>' . esc_html($value) . '</td></tr>';
     }
 
+    /**
+     * List every document for the company, each with its full version
+     * history (not just the current version) so staff can download,
+     * delete, or replace any individual version - correcting one bad
+     * upload without losing the rest of a document's history.
+     */
     private function renderDocuments(WorkflowInstance $workflow, Company $company): void
     {
         $documents = $this->documents->getDocumentsForOwner('company', $company->getUuid());
@@ -759,19 +1082,89 @@ final class QualityReviewPage
             return;
         }
 
-        echo '<ul>';
-
         foreach ($documents as $document) {
-            $downloadUrl = add_query_arg(
-                ['page' => self::SLUG, 'workflow' => $workflow->getUuid(), 'download' => $document->getUuid()],
-                admin_url('admin.php')
-            );
+            $versions = $document->getVersions(); // Most recent first.
 
-            echo '<li>' . esc_html($document->getCategory()->label()) . ' &mdash; '
-                . '<a href="' . esc_url($downloadUrl) . '">' . esc_html($document->getName()) . '</a></li>';
+            echo '<p><strong>' . esc_html($document->getCategory()->label()) . '</strong> &mdash; '
+                . esc_html($document->getName()) . '</p><ul>';
+
+            foreach ($versions as $version) {
+                $downloadUrl = add_query_arg(
+                    [
+                        'page' => self::SLUG,
+                        'workflow' => $workflow->getUuid(),
+                        'download' => $document->getUuid(),
+                        'version' => $version->uuid,
+                    ],
+                    admin_url('admin.php')
+                );
+
+                echo '<li>'
+                    . '<a href="' . esc_url($downloadUrl) . '">'
+                    . esc_html(sprintf(
+                        /* translators: 1: version number, 2: upload date/time */
+                        __('Version %1$d (%2$s)', 'bizupkeep-workflow'),
+                        $version->versionNumber,
+                        wp_date('Y-m-d H:i', $version->uploadedAt->getTimestamp())
+                    ))
+                    . '</a>';
+
+                if (count($versions) > 1) {
+                    echo ' ';
+                    $this->renderDeleteVersionButton($workflow, $document->getUuid(), $version->uuid);
+                }
+
+                echo '</li>';
+            }
+
+            echo '</ul>';
+
+            $this->renderReplaceVersionForm($workflow, $document->getUuid());
         }
+    }
 
-        echo '</ul>';
+    /**
+     * A small inline form deleting a single version, shown next to it
+     * in renderDocuments() - only ever rendered when the document has
+     * more than one version (handleVersionDelete()/DocumentService
+     * refuse to remove the last one regardless, but hiding the button
+     * avoids a guaranteed-to-fail submission).
+     */
+    private function renderDeleteVersionButton(
+        WorkflowInstance $workflow,
+        string $documentUuid,
+        string $versionUuid
+    ): void {
+        echo '<form method="post" style="display:inline" onsubmit="return confirm(\''
+            . esc_js(__('Delete this version? This cannot be undone.', 'bizupkeep-workflow'))
+            . '\');">';
+        wp_nonce_field(self::DELETE_VERSION_NONCE_ACTION, self::DELETE_VERSION_NONCE_FIELD);
+        echo '<input type="hidden" name="workflow" value="' . esc_attr($workflow->getUuid()) . '" />';
+        echo '<input type="hidden" name="target_document" value="' . esc_attr($documentUuid) . '" />';
+        echo '<input type="hidden" name="version" value="' . esc_attr($versionUuid) . '" />';
+        echo '<button type="submit" class="button-link" style="color:#b32d2e;">'
+            . esc_html__('Delete', 'bizupkeep-workflow') . '</button>';
+        echo '</form>';
+    }
+
+    /**
+     * A compact per-document "replace" upload, posting to the same
+     * handler as renderUploadForm() (handleDocumentUpload()) but with
+     * 'target_document' set, so the file is attached as a new version
+     * of this document instead of creating a new one under a category
+     * picker.
+     */
+    private function renderReplaceVersionForm(WorkflowInstance $workflow, string $documentUuid): void
+    {
+        echo '<form method="post" enctype="multipart/form-data" style="margin:0 0 1.5em;">';
+        wp_nonce_field(self::UPLOAD_NONCE_ACTION, self::UPLOAD_NONCE_FIELD);
+        echo '<input type="hidden" name="workflow" value="' . esc_attr($workflow->getUuid()) . '" />';
+        echo '<input type="hidden" name="target_document" value="' . esc_attr($documentUuid) . '" />';
+        echo '<label>' . esc_html__('Replace with a new version:', 'bizupkeep-workflow') . ' '
+            . '<input type="file" name="document" accept=".pdf,.jpg,.jpeg,.png" required /></label> '
+            . '<button type="submit" class="button">' . esc_html__('Upload New Version', 'bizupkeep-workflow')
+            . '</button>';
+        echo '</form>';
     }
 
     /**
@@ -907,9 +1300,56 @@ final class QualityReviewPage
     }
 
     /**
-     * Stream a submitted document's current version to the browser,
-     * re-verifying it actually belongs to the company under review
-     * before serving it.
+     * The staff "unstick a workflow" escape hatch - forces the
+     * application directly to a chosen status, bypassing its normal
+     * guarded transitions entirely. Shown for any non-terminal status
+     * (see renderDetail()), gated by the stricter WORKFLOW_MANAGE
+     * capability rather than WORKFLOW_TRANSITION, since this is
+     * deliberately outside the reviewed lifecycle every other form on
+     * this page respects.
+     */
+    private function renderForceStatusForm(WorkflowInstance $workflow): void
+    {
+        echo '<h3>' . esc_html__('Override Status (Advanced)', 'bizupkeep-workflow') . '</h3>';
+        echo '<p>' . esc_html__(
+            'Force this application directly to a different status, bypassing its normal approval flow. Use only to unstick an application that cannot otherwise recover - every use is recorded in its history.',
+            'bizupkeep-workflow'
+        ) . '</p>';
+        echo '<form method="post">';
+        wp_nonce_field(self::FORCE_STATUS_NONCE_ACTION, self::FORCE_STATUS_NONCE_FIELD);
+        echo '<input type="hidden" name="workflow" value="' . esc_attr($workflow->getUuid()) . '" />';
+
+        echo '<p><label for="bizupkeep-force-status">'
+            . esc_html__('New Status', 'bizupkeep-workflow') . '</label><br />';
+        echo '<select id="bizupkeep-force-status" name="force_status" required>';
+        echo '<option value="">' . esc_html__('Select a status', 'bizupkeep-workflow') . '</option>';
+
+        foreach (WorkflowStatus::cases() as $status) {
+            if ($status === $workflow->getStatus()) {
+                continue;
+            }
+
+            echo '<option value="' . esc_attr($status->value) . '">' . esc_html($status->label()) . '</option>';
+        }
+
+        echo '</select></p>';
+
+        echo '<p><label for="bizupkeep-force-reason">'
+            . esc_html__('Reason (required)', 'bizupkeep-workflow') . '</label><br />'
+            . '<textarea id="bizupkeep-force-reason" name="force_reason" rows="3" class="large-text" required>'
+            . '</textarea></p>';
+
+        echo '<p><button type="submit" class="button">'
+            . esc_html__('Override Status', 'bizupkeep-workflow') . '</button></p>';
+
+        echo '</form>';
+    }
+
+    /**
+     * Stream a submitted document to the browser - a specific version
+     * if the 'version' query arg names one belonging to the document,
+     * otherwise its current version - re-verifying the document
+     * actually belongs to the company under review before serving it.
      */
     private function streamDocument(int $userId, string $workflowUuid, string $documentUuid): void
     {
@@ -934,7 +1374,20 @@ final class QualityReviewPage
             wp_die(esc_html__('That document does not belong to this application.', 'bizupkeep-workflow'));
         }
 
-        $version = $document->getCurrentVersion();
+        $requestedVersionUuid = $this->param('version');
+        $version = null;
+
+        if ($requestedVersionUuid !== '') {
+            foreach ($document->getVersions() as $candidate) {
+                if ($candidate->uuid === $requestedVersionUuid) {
+                    $version = $candidate;
+
+                    break;
+                }
+            }
+        }
+
+        $version ??= $document->getCurrentVersion();
 
         if ($version === null || ! is_file($version->filePath)) {
             wp_die(esc_html__('That document file is no longer available.', 'bizupkeep-workflow'));
