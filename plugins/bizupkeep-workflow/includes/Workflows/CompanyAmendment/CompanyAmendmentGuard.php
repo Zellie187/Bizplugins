@@ -39,6 +39,8 @@ final class CompanyAmendmentGuard implements TransitionGuardInterface
             CompanyAmendmentDefinition::ACTION_VERIFY_DOCUMENTS => $this->guardVerifyDocuments($workflow, $context),
             CompanyAmendmentDefinition::ACTION_CONFIRM_PAYMENT => $this->guardConfirmPayment($context),
             CompanyAmendmentDefinition::ACTION_APPROVE => $this->guardApprove($context),
+            CompanyAmendmentDefinition::ACTION_REJECT_NAME => $this->guardRejectName($workflow),
+            CompanyAmendmentDefinition::ACTION_RESUBMIT_NAMES => $this->guardResubmitNames($context),
             default => null,
         };
     }
@@ -135,6 +137,56 @@ final class CompanyAmendmentGuard implements TransitionGuardInterface
         if (! is_string($reviewer) || trim($reviewer) === '') {
             throw new PreconditionFailedException(
                 'Quality review approval must record who performed the review.'
+            );
+        }
+    }
+
+    /**
+     * Unlike Company Registration - where every workflow always
+     * involves a proposed name - rejecting a name only makes sense
+     * for an amendment that actually included a name change. The
+     * admin UI already only offers this action for such instances
+     * (see QualityReviewPage::canRejectName()), but the state machine
+     * itself has no way to know an instance's amendment_types, so this
+     * guard is what actually stops a director- or address-only
+     * amendment from being sent to NamesRejected via a forged/direct
+     * request.
+     */
+    private function guardRejectName(WorkflowInstance $workflow): void
+    {
+        if (! in_array(CompanyAmendmentDefinition::AMENDMENT_TYPE_NAME, $this->amendmentTypes($workflow), true)) {
+            throw new PreconditionFailedException(
+                'This amendment does not include a name change, so its proposed name cannot be rejected.'
+            );
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $context
+     */
+    private function guardResubmitNames(array $context): void
+    {
+        $names = $context['proposed_names'] ?? [];
+
+        if (! is_array($names)) {
+            throw new PreconditionFailedException(
+                'At least one proposed company name is required to resubmit.'
+            );
+        }
+
+        $hasNonBlankName = false;
+
+        foreach ($names as $name) {
+            if (is_string($name) && trim($name) !== '') {
+                $hasNonBlankName = true;
+
+                break;
+            }
+        }
+
+        if (! $hasNonBlankName) {
+            throw new PreconditionFailedException(
+                'At least one proposed company name is required to resubmit.'
             );
         }
     }

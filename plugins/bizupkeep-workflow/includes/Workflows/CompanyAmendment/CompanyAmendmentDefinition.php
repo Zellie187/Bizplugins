@@ -32,6 +32,17 @@ use BizHub\Workflow\Enums\WorkflowStatus;
  * with Cancel available from any non-terminal status and Reject
  * available from Quality Review.
  *
+ * Also mirrors CompanyRegistrationDefinition's second, recoverable
+ * Quality Review exit: RejectName, for when CIPC declines a proposed
+ * name change. That moves the workflow to NamesRejected so the client
+ * can submit new names via ResubmitNames, returning it to Quality
+ * Review. Unlike Registration - where every workflow always involves a
+ * name - only applies when this amendment actually included a name
+ * change (`amendment_types` contains 'name'); CompanyAmendmentGuard
+ * enforces that at the reject_name transition itself, not just in the
+ * admin UI, since the state machine alone has no way to know what an
+ * instance's amendment_types are.
+ *
  * @package BizHub\Workflow\Workflows\CompanyAmendment
  */
 final class CompanyAmendmentDefinition implements WorkflowDefinitionInterface
@@ -60,6 +71,8 @@ final class CompanyAmendmentDefinition implements WorkflowDefinitionInterface
     public const ACTION_ARCHIVE = 'archive';
     public const ACTION_CANCEL = 'cancel';
     public const ACTION_REJECT = 'reject';
+    public const ACTION_REJECT_NAME = 'reject_name';
+    public const ACTION_RESUBMIT_NAMES = 'resubmit_names';
 
     /**
      * {@inheritDoc}
@@ -89,6 +102,7 @@ final class CompanyAmendmentDefinition implements WorkflowDefinitionInterface
             WorkflowStatus::AwaitingPayment,
             WorkflowStatus::Processing,
             WorkflowStatus::QualityReview,
+            WorkflowStatus::NamesRejected,
         ];
 
         $rules = [
@@ -131,6 +145,16 @@ final class CompanyAmendmentDefinition implements WorkflowDefinitionInterface
                 self::ACTION_REJECT,
                 [WorkflowStatus::QualityReview],
                 WorkflowStatus::Rejected
+            ),
+            new TransitionRule(
+                self::ACTION_REJECT_NAME,
+                [WorkflowStatus::QualityReview],
+                WorkflowStatus::NamesRejected
+            ),
+            new TransitionRule(
+                self::ACTION_RESUBMIT_NAMES,
+                [WorkflowStatus::NamesRejected],
+                WorkflowStatus::QualityReview
             ),
             new TransitionRule(
                 self::ACTION_CANCEL,

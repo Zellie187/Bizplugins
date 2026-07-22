@@ -9,6 +9,8 @@ use BizHub\Api\Resources\ApplicationResource;
 use BizHub\Applications\Contracts\ApplicationServiceInterface;
 use BizHub\Applications\Exceptions\ApplicationNotFoundException;
 use BizHub\Applications\Services\ApplicationWorkflowService;
+use BizHub\ClientPortal\Contracts\ClientServiceInterface;
+use BizHub\ClientPortal\Exceptions\ClientNotFoundException;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -25,7 +27,8 @@ final class ApplicationController
     public function __construct(
         private readonly ApplicationServiceInterface $applications,
         private readonly ApplicationWorkflowService $workflow,
-        private readonly AuthenticateApi $authenticate
+        private readonly AuthenticateApi $authenticate,
+        private readonly ClientServiceInterface $clients
     ) {
     }
 
@@ -55,10 +58,26 @@ final class ApplicationController
 
     /**
      * List application summaries for the current user.
+     *
+     * getApplicationSummaries() takes the numeric bizhub_clients.id, not
+     * the WordPress wp_users.ID current_user_id() returns - those are
+     * different ID spaces, so the current user's WP ID must first be
+     * resolved to their client record. A user with no client account
+     * yet (e.g. never completed onboarding) simply has no applications.
      */
     public function index(WP_REST_Request $request): WP_REST_Response
     {
-        $summaries = $this->applications->getApplicationSummaries(get_current_user_id());
+        try {
+            $clientId = $this->clients->getClientByWpUserId(get_current_user_id())->getId();
+        } catch (ClientNotFoundException) {
+            return new WP_REST_Response([], 200);
+        }
+
+        if ($clientId === null) {
+            return new WP_REST_Response([], 200);
+        }
+
+        $summaries = $this->applications->getApplicationSummaries($clientId);
 
         return new WP_REST_Response(
             array_map(static fn ($summary): array => $summary->toArray(), $summaries),

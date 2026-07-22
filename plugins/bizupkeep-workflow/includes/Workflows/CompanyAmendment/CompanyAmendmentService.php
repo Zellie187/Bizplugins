@@ -38,6 +38,8 @@ final class CompanyAmendmentService implements WorkflowTypeServiceInterface
         CompanyAmendmentDefinition::ACTION_ARCHIVE,
         CompanyAmendmentDefinition::ACTION_CANCEL,
         CompanyAmendmentDefinition::ACTION_REJECT,
+        CompanyAmendmentDefinition::ACTION_REJECT_NAME,
+        CompanyAmendmentDefinition::ACTION_RESUBMIT_NAMES,
     ];
 
     public function __construct(

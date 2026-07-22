@@ -185,4 +185,64 @@ final class CompanyAmendmentGuardTest extends TestCase
 
         $this->addToAssertionCount(1);
     }
+
+    public function test_reject_name_requires_a_name_change_in_this_amendment(): void
+    {
+        $this->expectException(PreconditionFailedException::class);
+
+        $this->guard->guard(
+            $this->workflowWithMetadata(WorkflowStatus::QualityReview, ['amendment_types' => ['director']]),
+            WorkflowStatus::NamesRejected,
+            CompanyAmendmentDefinition::ACTION_REJECT_NAME,
+            []
+        );
+    }
+
+    public function test_reject_name_succeeds_when_amendment_includes_a_name_change(): void
+    {
+        $this->guard->guard(
+            $this->workflowWithMetadata(WorkflowStatus::QualityReview, ['amendment_types' => ['name', 'address']]),
+            WorkflowStatus::NamesRejected,
+            CompanyAmendmentDefinition::ACTION_REJECT_NAME,
+            []
+        );
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function test_resubmit_names_requires_at_least_one_proposed_name(): void
+    {
+        $this->expectException(PreconditionFailedException::class);
+
+        $this->guard->guard(
+            $this->workflowWithMetadata(WorkflowStatus::NamesRejected, ['amendment_types' => ['name']]),
+            WorkflowStatus::QualityReview,
+            CompanyAmendmentDefinition::ACTION_RESUBMIT_NAMES,
+            ['proposed_names' => []]
+        );
+    }
+
+    public function test_resubmit_names_rejects_all_blank_names(): void
+    {
+        $this->expectException(PreconditionFailedException::class);
+
+        $this->guard->guard(
+            $this->workflowWithMetadata(WorkflowStatus::NamesRejected, ['amendment_types' => ['name']]),
+            WorkflowStatus::QualityReview,
+            CompanyAmendmentDefinition::ACTION_RESUBMIT_NAMES,
+            ['proposed_names' => ['', '  ']]
+        );
+    }
+
+    public function test_resubmit_names_succeeds_with_at_least_one_name(): void
+    {
+        $this->guard->guard(
+            $this->workflowWithMetadata(WorkflowStatus::NamesRejected, ['amendment_types' => ['name']]),
+            WorkflowStatus::QualityReview,
+            CompanyAmendmentDefinition::ACTION_RESUBMIT_NAMES,
+            ['proposed_names' => ['New Name (Pty) Ltd']]
+        );
+
+        $this->addToAssertionCount(1);
+    }
 }

@@ -124,22 +124,6 @@ final class QualityReviewPage
     ];
 
     /**
-     * "Reject - Name Not Approved" is a second, recoverable rejection
-     * path distinct from the plain Reject above: it's specifically for
-     * when CIPC declines the proposed company name(s), which sends the
-     * workflow to NamesRejected instead of the terminal Rejected, so
-     * the client can submit new names and the application returns to
-     * this queue automatically. Company Registration only - CIPC name
-     * approval only applies to a brand-new company name, not an
-     * Amendment or Annual Return.
-     *
-     * @var array<int,string>
-     */
-    private const NAME_REJECTABLE_TYPES = [
-        CompanyRegistrationDefinition::TYPE,
-    ];
-
-    /**
      * Upper bound on how many workflow instances of a single type are
      * scanned per query to build the review queue. Generous for the
      * business volume this runs at.
@@ -246,8 +230,8 @@ final class QualityReviewPage
 
         $isRejectName = $action === self::ACTION_REJECT_NAME;
 
-        if ($isRejectName && ! in_array($workflow->getWorkflowType(), self::NAME_REJECTABLE_TYPES, true)) {
-            return ['error', __('This application type has no proposed name to reject.', 'bizupkeep-workflow')];
+        if ($isRejectName && ! $this->canRejectName($workflow)) {
+            return ['error', __('This application has no proposed name to reject.', 'bizupkeep-workflow')];
         }
 
         if (in_array($action, [self::ACTION_REJECT, self::ACTION_REJECT_NAME], true) && trim($reason) === '') {
@@ -1265,7 +1249,7 @@ final class QualityReviewPage
     private function renderReviewForm(WorkflowInstance $workflow): void
     {
         $canReject = in_array($workflow->getWorkflowType(), self::REJECTABLE_TYPES, true);
-        $canRejectName = in_array($workflow->getWorkflowType(), self::NAME_REJECTABLE_TYPES, true);
+        $canRejectName = $this->canRejectName($workflow);
 
         echo '<h3>' . esc_html__('Decision', 'bizupkeep-workflow') . '</h3>';
         echo '<form method="post">';
@@ -1297,6 +1281,36 @@ final class QualityReviewPage
         }
 
         echo '</p></form>';
+    }
+
+    /**
+     * Whether "Reject - Name Not Approved" applies to this specific
+     * workflow instance. Company Registration always involves a
+     * proposed company name, so it's unconditional there. Company
+     * Amendment only involves one when this particular application
+     * bundled a name change - checked against its own metadata, not
+     * just its type, since one Amendment instance might be a
+     * director-only or address-only change with no name to reject.
+     * Annual Return never involves a proposed name at all.
+     *
+     * CompanyAmendmentGuard::guardRejectName() enforces the same rule
+     * at the transition itself - this is the read-side check that
+     * decides whether to offer the button/allow the request in the
+     * first place, not the source of truth for whether it's permitted.
+     */
+    private function canRejectName(WorkflowInstance $workflow): bool
+    {
+        if ($workflow->getWorkflowType() === CompanyRegistrationDefinition::TYPE) {
+            return true;
+        }
+
+        if ($workflow->getWorkflowType() === CompanyAmendmentDefinition::TYPE) {
+            $types = $workflow->getMetadata()['amendment_types'] ?? [];
+
+            return is_array($types) && in_array(CompanyAmendmentDefinition::AMENDMENT_TYPE_NAME, $types, true);
+        }
+
+        return false;
     }
 
     /**

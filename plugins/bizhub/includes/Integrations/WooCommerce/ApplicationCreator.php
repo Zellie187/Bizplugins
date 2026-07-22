@@ -52,9 +52,15 @@ final class ApplicationCreator
                 continue;
             }
 
+            $clientId = $client->getId();
+
+            if ($clientId === null) {
+                continue;
+            }
+
             $application = $this->applications->createApplication(new ApplicationData(
                 Uuid::generate(),
-                $client->getWpUserId(),
+                $clientId,
                 $applicationType
             ));
 
