@@ -34,15 +34,6 @@ final class WorkflowAdminMenu
     ];
 
     /**
-     * How many days a non-terminal workflow may sit without an update
-     * before its row is flagged as overdue. Deliberately generous - a
-     * business-day-scale heuristic, not a strict SLA - so staff can
-     * spot applications that have stalled without every legitimately
-     * slow filing (e.g. awaiting a client's documents) being flagged.
-     */
-    private const OVERDUE_DAYS = 7;
-
-    /**
      * Register the 'admin_menu' hook.
      */
     public function register(): void
@@ -129,7 +120,7 @@ final class WorkflowAdminMenu
             $companyLabel = $this->companyLabel($companies, $summary->subjectUuid);
 
             $isOverdue = ! $summary->status->isTerminal()
-                && ($summary->updatedAt ?? $summary->createdAt)->diff($now)->days >= self::OVERDUE_DAYS;
+                && ($summary->updatedAt ?? $summary->createdAt)->diff($now)->days >= OverdueThreshold::DAYS;
 
             echo '<tr' . ($isOverdue ? ' style="background-color:#fcf0f1;"' : '') . '>';
             echo '<td>' . esc_html(self::typeLabel($summary->workflowType)) . '</td>';

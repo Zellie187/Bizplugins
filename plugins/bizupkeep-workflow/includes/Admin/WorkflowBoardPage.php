@@ -82,15 +82,6 @@ final class WorkflowBoardPage
     ];
 
     /**
-     * How many days a non-terminal workflow may sit without an update
-     * before its card is flagged overdue. Same threshold as
-     * WorkflowDashboardPage::OVERDUE_DAYS/WorkflowAdminMenu::OVERDUE_DAYS -
-     * kept in sync deliberately, not extracted to a shared constant
-     * (no shared base class exists between these admin pages).
-     */
-    private const OVERDUE_DAYS = 7;
-
-    /**
      * Upper bound on how many workflow instances of a single type are
      * scanned to build the board. Generous for the business volume
      * this runs at - see QualityReviewPage::SCAN_LIMIT for the same
@@ -238,7 +229,7 @@ final class WorkflowBoardPage
         $companyName = $company?->getCompanyName() ?? __('(company record missing)', 'bizupkeep-workflow');
         $regNumber = $company?->getRegistrationNumber() ?? '—';
         $since = $summary->updatedAt ?? $summary->createdAt;
-        $isOverdue = ! $summary->status->isTerminal() && $since->diff($now)->days >= self::OVERDUE_DAYS;
+        $isOverdue = ! $summary->status->isTerminal() && $since->diff($now)->days >= OverdueThreshold::DAYS;
         $viewUrl = add_query_arg(
             ['page' => QualityReviewPage::SLUG, 'workflow' => $summary->uuid],
             admin_url('admin.php')

@@ -38,14 +38,6 @@ final class WorkflowDashboardPage
     ];
 
     /**
-     * How many days a non-terminal workflow may sit without an update
-     * before it counts as overdue. See WorkflowAdminMenu::OVERDUE_DAYS -
-     * kept as the same value deliberately, so a row flagged overdue
-     * there is the same row counted overdue here.
-     */
-    private const OVERDUE_DAYS = 7;
-
-    /**
      * Upper bound on how many workflow instances of a single type are
      * scanned to build the dashboard. Generous for the business volume
      * this runs at - see QualityReviewPage::SCAN_LIMIT for the same
@@ -213,7 +205,7 @@ final class WorkflowDashboardPage
         echo '<h2>' . esc_html(sprintf(
             /* translators: %d: number of days */
             __('Overdue (no update in %d+ days)', 'bizupkeep-workflow'),
-            self::OVERDUE_DAYS
+            OverdueThreshold::DAYS
         )) . '</h2>';
 
         if ($overdue === []) {
@@ -266,7 +258,7 @@ final class WorkflowDashboardPage
             return false;
         }
 
-        return ($summary->updatedAt ?? $summary->createdAt)->diff($now)->days >= self::OVERDUE_DAYS;
+        return ($summary->updatedAt ?? $summary->createdAt)->diff($now)->days >= OverdueThreshold::DAYS;
     }
 
     private function companyLabel(string $companyUuid): string
