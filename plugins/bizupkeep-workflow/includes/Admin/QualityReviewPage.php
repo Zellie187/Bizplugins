@@ -168,6 +168,7 @@ final class QualityReviewPage
             ?? $this->handleSendQuote($userId)
             ?? $this->handleForceStatus($userId)
             ?? $this->handleBulkAction($userId)
+            ?? $this->handleBulkUpload($userId)
             ?? $this->handleSubmission($userId);
 
         echo '<div class="wrap"><h1>' . esc_html__('Quality Review', 'bizupkeep-workflow') . '</h1>';
@@ -454,13 +455,13 @@ final class QualityReviewPage
      *
      * @return array{name:string,tmp_name:string}|null
      */
-    private function validateUploadedFile(): ?array
+    private function validateUploadedFile(string $fieldName = 'document'): ?array
     {
-        if (empty($_FILES['document']) || ! is_array($_FILES['document'])) {
+        if (empty($_FILES[$fieldName]) || ! is_array($_FILES[$fieldName])) {
             return null;
         }
 
-        $file = $_FILES['document'];
+        $file = $_FILES[$fieldName];
 
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             return null;
@@ -737,6 +738,134 @@ final class QualityReviewPage
     }
 
     /**
+     * Handle the bulk document-upload POST submission from the review
+     * queue (see renderQueue()) - attaches ONE uploaded file to every
+     * selected application's company folder, for a document that
+     * genuinely applies to several cases at once (e.g. a shared
+     * compliance notice). Reuses the same checkbox selection and nonce
+     * as handleBulkAction(), distinguished by its own submit-button
+     * name ('bizupkeep_bulk_upload') rather than 'bulk_action'.
+     *
+     * @return array{0:string,1:string}|null
+     */
+    private function handleBulkUpload(int $userId): ?array
+    {
+        if (! isset($_POST['bizupkeep_bulk_upload'])) {
+            return null;
+        }
+
+        $nonce = isset($_POST[self::BULK_NONCE_FIELD])
+            ? sanitize_text_field(wp_unslash($_POST[self::BULK_NONCE_FIELD]))
+            : '';
+
+        if (! wp_verify_nonce($nonce, self::BULK_NONCE_ACTION)) {
+            return ['error', __('Security check failed. Please try again.', 'bizupkeep-workflow')];
+        }
+
+        if (! $this->authorization->can($userId, Capabilities::WORKFLOW_TRANSITION)) {
+            return ['error', __('You are not permitted to upload documents.', 'bizupkeep-workflow')];
+        }
+
+        $categoryRaw = isset($_POST['bulk_upload_category'])
+            ? sanitize_text_field(wp_unslash($_POST['bulk_upload_category']))
+            : '';
+        $category = null;
+
+        foreach (DocumentCategory::cases() as $case) {
+            if ($case->value === $categoryRaw) {
+                $category = $case;
+
+                break;
+            }
+        }
+
+        if ($category === null) {
+            return ['error', __('Please choose a document type.', 'bizupkeep-workflow')];
+        }
+
+        $file = $this->validateUploadedFile('bulk_upload_document');
+
+        if ($file === null) {
+            return ['error', __(
+                'That upload could not be processed - please check the file (PDF, JPG or PNG, max 10MB) and try again.',
+                'bizupkeep-workflow'
+            )];
+        }
+
+        $uuids = isset($_POST['workflow_uuids']) && is_array($_POST['workflow_uuids'])
+            ? array_values(array_filter(array_map('sanitize_text_field', wp_unslash($_POST['workflow_uuids']))))
+            : [];
+
+        if ($uuids === []) {
+            return ['error', __('Select at least one application.', 'bizupkeep-workflow')];
+        }
+
+        $succeeded = 0;
+        $errors = [];
+
+        foreach ($uuids as $uuid) {
+            $workflow = $this->workflows->find($uuid);
+
+            if ($workflow === null || ! in_array($workflow->getWorkflowType(), self::REVIEWED_TYPES, true)) {
+                $errors[] = __('An application could not be found.', 'bizupkeep-workflow');
+
+                continue;
+            }
+
+            try {
+                $company = $this->companies->getCompany($workflow->getSubjectUuid());
+            } catch (CompanyNotFoundException) {
+                $errors[] = __('An application\'s company record could not be found.', 'bizupkeep-workflow');
+
+                continue;
+            }
+
+            try {
+                $this->documents->uploadDocument(
+                    'company',
+                    $company->getUuid(),
+                    $file['name'],
+                    $category,
+                    $file['tmp_name'],
+                    $file['name'],
+                    $userId
+                );
+
+                $succeeded++;
+            } catch (\Throwable $exception) {
+                $errors[] = sprintf(
+                    /* translators: %s: company name */
+                    __('Upload failed for %s.', 'bizupkeep-workflow'),
+                    $company->getCompanyName()
+                );
+            }
+        }
+
+        $summary = sprintf(
+            /* translators: %d: number of applications the document was attached to */
+            _n(
+                'Document attached to %d application.',
+                'Document attached to %d applications.',
+                $succeeded,
+                'bizupkeep-workflow'
+            ),
+            $succeeded
+        );
+
+        if ($errors !== []) {
+            $summary .= ' ' . sprintf(
+                /* translators: %s: semicolon-separated list of per-row error messages */
+                __('Some rows were skipped: %s', 'bizupkeep-workflow'),
+                implode('; ', array_slice($errors, 0, 5))
+            );
+
+            return [$succeeded > 0 ? 'warning' : 'error', $summary];
+        }
+
+        return ['success', $summary];
+    }
+
+    /**
      * Render the queue of applications awaiting quality review.
      */
     private function renderQueue(): void
@@ -754,13 +883,21 @@ final class QualityReviewPage
         /*
          * Every row here already sits in QualityReview (pendingReviews()
          * guarantees that), so the whole table is wrapped in one form:
-         * a checkbox per row plus the two bulk buttons below let staff
-         * clear a backlog of straightforward cases without opening each
-         * application individually. handleBulkAction() re-validates
-         * every selected row server-side (e.g. Annual Return can't be
+         * a checkbox per row, the two bulk-decision buttons, and a bulk
+         * document upload let staff clear a backlog of straightforward
+         * cases without opening each application individually.
+         * handleBulkAction()/handleBulkUpload() re-validate every
+         * selected row server-side (e.g. Annual Return can't be
          * bulk-rejected any more than it can be rejected one at a time).
+         *
+         * Bulk upload deliberately means ONE file attached to EVERY
+         * selected application's company folder, not one file per row -
+         * a plain HTML form can't sensibly collect a different file per
+         * checked row. It's for a document that genuinely applies to
+         * several cases at once (e.g. a shared compliance notice), not
+         * a shortcut for uploading unrelated documents in one submit.
          */
-        echo '<form method="post">';
+        echo '<form method="post" enctype="multipart/form-data">';
         wp_nonce_field(self::BULK_NONCE_ACTION, self::BULK_NONCE_FIELD);
 
         echo '<p><label for="bizupkeep-bulk-reason">' . esc_html__(
@@ -776,6 +913,29 @@ final class QualityReviewPage
             . '<button type="submit" name="bulk_action" value="' . esc_attr(self::ACTION_REJECT) . '" class="button">'
             . esc_html__('Bulk Reject Selected', 'bizupkeep-workflow') . '</button>'
             . '</p>';
+
+        echo '<p><strong>' . esc_html__(
+            'Upload one document to every selected application\'s company folder:',
+            'bizupkeep-workflow'
+        ) . '</strong></p>';
+
+        echo '<p><label for="bizupkeep-bulk-upload-category">'
+            . esc_html__('Document Type', 'bizupkeep-workflow') . '</label> ';
+        echo '<select id="bizupkeep-bulk-upload-category" name="bulk_upload_category">';
+        echo '<option value="">' . esc_html__('Select an option', 'bizupkeep-workflow') . '</option>';
+
+        foreach (DocumentCategory::cases() as $case) {
+            echo '<option value="' . esc_attr($case->value) . '">' . esc_html($case->label()) . '</option>';
+        }
+
+        echo '</select> ';
+        echo '<label for="bizupkeep-bulk-upload-file">'
+            . esc_html__('File (PDF, JPG or PNG, max 10MB)', 'bizupkeep-workflow') . '</label> '
+            . '<input type="file" id="bizupkeep-bulk-upload-file" name="bulk_upload_document" '
+            . 'accept=".pdf,.jpg,.jpeg,.png" /></p>';
+
+        echo '<p><button type="submit" name="bizupkeep_bulk_upload" value="1" class="button">'
+            . esc_html__('Bulk Upload to Selected', 'bizupkeep-workflow') . '</button></p>';
 
         echo '<table class="wp-list-table widefat fixed striped">';
         echo '<thead><tr>'
@@ -916,6 +1076,13 @@ final class QualityReviewPage
                     echo '<li>' . esc_html($name) . '</li>';
                 }
                 echo '</ol>';
+            }
+
+            $clientNotes = is_string($metadata['client_notes'] ?? null) ? $metadata['client_notes'] : '';
+
+            if (trim($clientNotes) !== '') {
+                echo '<h3>' . esc_html__('Client Notes', 'bizupkeep-workflow') . '</h3>';
+                echo '<p>' . nl2br(esc_html($clientNotes)) . '</p>';
             }
 
             return;
