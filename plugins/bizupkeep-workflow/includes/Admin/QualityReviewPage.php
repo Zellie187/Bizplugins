@@ -83,6 +83,10 @@ final class QualityReviewPage
 
     private const REGISTRATION_NUMBER_NONCE_FIELD = 'bizupkeep_workflow_update_registration_number_nonce';
 
+    private const ROLLBACK_NONCE_ACTION = 'bizupkeep_workflow_rollback';
+
+    private const ROLLBACK_NONCE_FIELD = 'bizupkeep_workflow_rollback_nonce';
+
     /**
      * Matches the client-facing upload form's own allowed types
      * (functions.php's bizupkeep_child_validate_uploaded_file()) - a
@@ -177,6 +181,7 @@ final class QualityReviewPage
             ?? $this->handleBulkAction($userId)
             ?? $this->handleBulkUpload($userId)
             ?? $this->handleUpdateRegistrationNumber($userId)
+            ?? $this->handleRollback($userId)
             ?? $this->handleSubmission($userId);
 
         echo '<div class="wrap"><h1>' . esc_html__('Quality Review', 'bizupkeep-workflow') . '</h1>';
@@ -627,6 +632,64 @@ final class QualityReviewPage
             $this->serviceFor($workflow->getWorkflowType())->forceStatus($workflowUuid, $status, $userId, $reason);
 
             return ['success', __('Status overridden.', 'bizupkeep-workflow')];
+        } catch (InvalidTransitionException $exception) {
+            return ['error', $exception->getMessage()];
+        } catch (WorkflowNotFoundException $exception) {
+            return ['error', __('That application could not be found.', 'bizupkeep-workflow')];
+        }
+    }
+
+    /**
+     * Handle the "Undo Last Step" POST submission (see
+     * renderRollbackButton()) - reverts a workflow to whatever status
+     * it was in immediately before its most recent transition, per
+     * WorkflowEngineInterface::rollback(). This existed at the engine
+     * level since the workflow was first built, but no admin screen
+     * ever called it - staff had no way to trigger it. Gated by the
+     * same stricter Capabilities::WORKFLOW_MANAGE as Override Status,
+     * since rollback() also bypasses the transition guard (unlike
+     * Approve/Reject/etc., it does not re-validate business rules for
+     * the status it lands on) - it is simply more constrained than
+     * Override Status, landing on exactly the previous status rather
+     * than any status chosen freely.
+     *
+     * @return array{0:string,1:string}|null
+     */
+    private function handleRollback(int $userId): ?array
+    {
+        if (! isset($_POST[self::ROLLBACK_NONCE_FIELD])) {
+            return null;
+        }
+
+        $nonce = sanitize_text_field(wp_unslash($_POST[self::ROLLBACK_NONCE_FIELD]));
+
+        if (! wp_verify_nonce($nonce, self::ROLLBACK_NONCE_ACTION)) {
+            return ['error', __('Security check failed. Please try again.', 'bizupkeep-workflow')];
+        }
+
+        if (! $this->authorization->can($userId, Capabilities::WORKFLOW_MANAGE)) {
+            return ['error', __('You are not permitted to roll back an application.', 'bizupkeep-workflow')];
+        }
+
+        $workflowUuid = isset($_POST['workflow']) ? sanitize_text_field(wp_unslash($_POST['workflow'])) : '';
+        $reason = isset($_POST['rollback_reason'])
+            ? sanitize_textarea_field(wp_unslash($_POST['rollback_reason']))
+            : '';
+
+        if (trim($reason) === '') {
+            return ['error', __('A reason is required to roll back an application.', 'bizupkeep-workflow')];
+        }
+
+        $workflow = $this->workflows->find($workflowUuid);
+
+        if ($workflow === null || ! in_array($workflow->getWorkflowType(), self::REVIEWED_TYPES, true)) {
+            return ['error', __('That application could not be found.', 'bizupkeep-workflow')];
+        }
+
+        try {
+            $this->serviceFor($workflow->getWorkflowType())->rollback($workflowUuid, $userId, $reason);
+
+            return ['success', __('Application rolled back to its previous status.', 'bizupkeep-workflow')];
         } catch (InvalidTransitionException $exception) {
             return ['error', $exception->getMessage()];
         } catch (WorkflowNotFoundException $exception) {
@@ -1130,8 +1193,29 @@ final class QualityReviewPage
             ! $workflow->isTerminal()
             && $this->authorization->can(get_current_user_id(), Capabilities::WORKFLOW_MANAGE)
         ) {
+            if ($this->canRollBack($workflow)) {
+                $this->renderRollbackForm($workflow);
+            }
+
             $this->renderForceStatusForm($workflow);
         }
+    }
+
+    /**
+     * Whether WorkflowEngineInterface::rollback() could actually
+     * succeed for this workflow - it needs at least one recorded
+     * transition with a non-null "from" status (a workflow's very
+     * first transition, Created -> its second status, has none - there
+     * is nothing before it to roll back to). Checked here purely to
+     * decide whether to show the button; WorkflowManager::rollback()
+     * enforces the same rule regardless.
+     */
+    private function canRollBack(WorkflowInstance $workflow): bool
+    {
+        $history = $workflow->getHistory();
+        $last = $history[count($history) - 1] ?? null;
+
+        return $last !== null && $last->from !== null;
     }
 
     /**
@@ -1593,6 +1677,33 @@ final class QualityReviewPage
         }
 
         return false;
+    }
+
+    /**
+     * "Undo Last Step" - a single button reverting the application to
+     * whatever status it was in immediately before its most recent
+     * transition (WorkflowEngineInterface::rollback()). Only shown when
+     * canRollBack() confirms there is actually a prior status to revert
+     * to. Less powerful than Override Status below it (can only ever
+     * land on the exact previous status, not any status chosen freely)
+     * but shares the same WORKFLOW_MANAGE gate, since it equally
+     * bypasses the transition guard.
+     */
+    private function renderRollbackForm(WorkflowInstance $workflow): void
+    {
+        echo '<h3>' . esc_html__('Undo Last Step', 'bizupkeep-workflow') . '</h3>';
+        echo '<form method="post">';
+        wp_nonce_field(self::ROLLBACK_NONCE_ACTION, self::ROLLBACK_NONCE_FIELD);
+        echo '<input type="hidden" name="workflow" value="' . esc_attr($workflow->getUuid()) . '" />';
+
+        echo '<p><label for="bizupkeep-rollback-reason">'
+            . esc_html__('Reason (required)', 'bizupkeep-workflow') . '</label><br />'
+            . '<textarea id="bizupkeep-rollback-reason" name="rollback_reason" rows="2" class="large-text" '
+            . 'required></textarea></p>';
+
+        echo '<p><button type="submit" class="button">'
+            . esc_html__('Undo Last Step', 'bizupkeep-workflow') . '</button></p>';
+        echo '</form>';
     }
 
     /**
