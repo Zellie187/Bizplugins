@@ -16,7 +16,6 @@ use BizHub\Framework\Providers\ServiceProvider as BaseServiceProvider;
 final class ServiceProvider extends BaseServiceProvider
 {
     public function __construct(
-        private readonly OrderListener $orderListener,
         private readonly CheckoutHandler $checkoutHandler
     ) {
     }
@@ -37,7 +36,6 @@ final class ServiceProvider extends BaseServiceProvider
             return;
         }
 
-        $this->orderListener->register();
         $this->checkoutHandler->register();
     }
 }
