@@ -6,8 +6,11 @@ namespace BizHub\Workflow\Admin;
 
 use BizHub\ClientPortal\Contracts\ClientRepositoryInterface;
 use BizHub\Companies\Contracts\CompanyServiceInterface;
+use BizHub\Companies\DTO\AddressData;
+use BizHub\Companies\DTO\CompanyData;
 use BizHub\Companies\Entities\Company;
 use BizHub\Companies\Exceptions\CompanyNotFoundException;
+use BizHub\Companies\Exceptions\InvalidCompanyException;
 use BizHub\Documents\Entities\DocumentCategory;
 use BizHub\Documents\Exceptions\DocumentNotFoundException;
 use BizHub\Documents\Services\DocumentService;
@@ -75,6 +78,10 @@ final class QualityReviewPage
     private const BULK_NONCE_ACTION = 'bizupkeep_workflow_bulk_review';
 
     private const BULK_NONCE_FIELD = 'bizupkeep_workflow_bulk_review_nonce';
+
+    private const REGISTRATION_NUMBER_NONCE_ACTION = 'bizupkeep_workflow_update_registration_number';
+
+    private const REGISTRATION_NUMBER_NONCE_FIELD = 'bizupkeep_workflow_update_registration_number_nonce';
 
     /**
      * Matches the client-facing upload form's own allowed types
@@ -169,6 +176,7 @@ final class QualityReviewPage
             ?? $this->handleForceStatus($userId)
             ?? $this->handleBulkAction($userId)
             ?? $this->handleBulkUpload($userId)
+            ?? $this->handleUpdateRegistrationNumber($userId)
             ?? $this->handleSubmission($userId);
 
         echo '<div class="wrap"><h1>' . esc_html__('Quality Review', 'bizupkeep-workflow') . '</h1>';
@@ -866,6 +874,86 @@ final class QualityReviewPage
     }
 
     /**
+     * Handle the "Update Registration Number" POST submission (see
+     * renderRegistrationNumberForm()) - lets staff record a company's
+     * real CIPC registration number once issued, replacing the
+     * PENDING-{uuid} placeholder every company starts with. No admin
+     * screen could do this before - CompanyService::updateCompany()
+     * existed but nothing ever called it.
+     *
+     * updateCompany() takes a full CompanyData, not a partial patch, so
+     * this rebuilds one from the company's own current values with
+     * only the registration number replaced - it does not touch
+     * directors (updateCompany() never does, regardless).
+     *
+     * @return array{0:string,1:string}|null
+     */
+    private function handleUpdateRegistrationNumber(int $userId): ?array
+    {
+        if (! isset($_POST[self::REGISTRATION_NUMBER_NONCE_FIELD])) {
+            return null;
+        }
+
+        $nonce = sanitize_text_field(wp_unslash($_POST[self::REGISTRATION_NUMBER_NONCE_FIELD]));
+
+        if (! wp_verify_nonce($nonce, self::REGISTRATION_NUMBER_NONCE_ACTION)) {
+            return ['error', __('Security check failed. Please try again.', 'bizupkeep-workflow')];
+        }
+
+        if (! $this->authorization->can($userId, Capabilities::WORKFLOW_TRANSITION)) {
+            return ['error', __('You are not permitted to edit company details.', 'bizupkeep-workflow')];
+        }
+
+        $workflowUuid = isset($_POST['workflow']) ? sanitize_text_field(wp_unslash($_POST['workflow'])) : '';
+        $newNumber = isset($_POST['registration_number'])
+            ? sanitize_text_field(wp_unslash($_POST['registration_number']))
+            : '';
+
+        if (trim($newNumber) === '') {
+            return ['error', __('Registration number cannot be empty.', 'bizupkeep-workflow')];
+        }
+
+        $workflow = $this->workflows->find($workflowUuid);
+
+        if ($workflow === null || ! in_array($workflow->getWorkflowType(), self::REVIEWED_TYPES, true)) {
+            return ['error', __('That application could not be found.', 'bizupkeep-workflow')];
+        }
+
+        try {
+            $company = $this->companies->getCompany($workflow->getSubjectUuid());
+        } catch (CompanyNotFoundException) {
+            return ['error', __('That application\'s company record could not be found.', 'bizupkeep-workflow')];
+        }
+
+        $address = $company->getRegisteredAddress();
+
+        try {
+            $this->companies->updateCompany(new CompanyData(
+                $company->getUuid(),
+                $company->getClientId(),
+                $newNumber,
+                $company->getCompanyName(),
+                $company->getCompanyType(),
+                $company->getStatus(),
+                new AddressData(
+                    $address->getAddressLine1(),
+                    $address->getAddressLine2(),
+                    $address->getSuburb(),
+                    $address->getCity(),
+                    $address->getProvince(),
+                    $address->getPostalCode(),
+                    $address->getCountry()
+                ),
+                incorporationDate: $company->getIncorporationDate()
+            ));
+        } catch (InvalidCompanyException $exception) {
+            return ['error', $exception->getMessage()];
+        }
+
+        return ['success', __('Registration number updated.', 'bizupkeep-workflow')];
+    }
+
+    /**
      * Render the queue of applications awaiting quality review.
      */
     private function renderQueue(): void
@@ -1017,6 +1105,11 @@ final class QualityReviewPage
 
         if ($company !== null) {
             $this->renderCompanyDetails($company);
+
+            if ($this->authorization->can(get_current_user_id(), Capabilities::WORKFLOW_TRANSITION)) {
+                $this->renderRegistrationNumberForm($workflow, $company);
+            }
+
             $this->renderTypeSpecificDetails($workflow);
             $this->renderDocuments($workflow, $company);
             $this->renderUploadForm($workflow);
@@ -1055,6 +1148,28 @@ final class QualityReviewPage
             $company->getRegisteredAddress()->getFormattedAddress()
         );
         echo '</tbody></table>';
+    }
+
+    /**
+     * A compact inline form for recording a company's real CIPC
+     * registration number once issued, replacing the PENDING-{uuid}
+     * placeholder every company starts with (see
+     * bizupkeep_child_submit_new_registration() in the theme). Shown
+     * regardless of the workflow's current status, same as the
+     * document upload form below it - staff need to fix this just as
+     * often on a Completed application as anywhere else.
+     */
+    private function renderRegistrationNumberForm(WorkflowInstance $workflow, Company $company): void
+    {
+        echo '<form method="post" style="margin:0 0 1.5em;">';
+        wp_nonce_field(self::REGISTRATION_NUMBER_NONCE_ACTION, self::REGISTRATION_NUMBER_NONCE_FIELD);
+        echo '<input type="hidden" name="workflow" value="' . esc_attr($workflow->getUuid()) . '" />';
+        echo '<label for="bizupkeep-registration-number">'
+            . esc_html__('Update Registration Number:', 'bizupkeep-workflow') . '</label> '
+            . '<input type="text" id="bizupkeep-registration-number" name="registration_number" '
+            . 'value="' . esc_attr($company->getRegistrationNumber()) . '" size="30" required /> '
+            . '<button type="submit" class="button">' . esc_html__('Save', 'bizupkeep-workflow') . '</button>';
+        echo '</form>';
     }
 
     /**
