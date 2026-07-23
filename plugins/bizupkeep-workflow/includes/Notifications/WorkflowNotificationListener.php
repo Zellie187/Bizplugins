@@ -68,12 +68,18 @@ final class WorkflowNotificationListener implements Listener
 
     private function render(string $template, WorkflowTransitioned $event): string
     {
+        $quoteAmount = $event->workflow->getMetadata()['quote_amount'] ?? null;
+
         return strtr($template, [
             '{workflow_uuid}' => $event->workflow->getUuid(),
             '{action}' => $event->transition->action,
             '{reason}' => $event->transition->reason,
             '{from_status}' => $event->transition->from?->label() ?? '',
             '{to_status}' => $event->transition->to->label(),
+            // Only meaningful for Annual Return's request_payment/revise_quote
+            // notifications - empty for every other workflow type/action,
+            // since nothing else ever sets quote_amount in metadata.
+            '{quote_amount}' => is_numeric($quoteAmount) ? number_format((float) $quoteAmount, 2) : '',
         ]);
     }
 }
