@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.3.0] - Signed Resolution and Minutes document categories
+
+### Added
+
+- `Documents\Entities\DocumentCategory` gained `SIGNED_RESOLUTION` ("Signed Resolution Letter") and `SIGNED_MINUTES` ("Signed Minutes of Meeting") cases. Additive - existing categories and their `label()` output are unaffected.
+- Driven by `astra-child`'s new Resolution Letter and Minutes of Meeting generation for Company Amendment: mirrors 0.2.6's Signed Power of Attorney pattern - the theme generates each document pre-populated with the company's details and the specific changes being made, the client prints and signs it, then uploads it back under one of these two new categories.
+
 ## [0.2.6] - Signed Power of Attorney document category
 
 ### Added

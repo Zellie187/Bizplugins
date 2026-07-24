@@ -18,6 +18,8 @@ enum DocumentCategory: string
     case BANK_STATEMENT = 'bank_statement';
     case CONTRACT = 'contract';
     case SIGNED_POA = 'signed_poa';
+    case SIGNED_RESOLUTION = 'signed_resolution';
+    case SIGNED_MINUTES = 'signed_minutes';
     case OTHER = 'other';
 
     /**
@@ -33,6 +35,8 @@ enum DocumentCategory: string
             self::BANK_STATEMENT => 'Bank Statement',
             self::CONTRACT => 'Contract',
             self::SIGNED_POA => 'Signed Power of Attorney',
+            self::SIGNED_RESOLUTION => 'Signed Resolution Letter',
+            self::SIGNED_MINUTES => 'Signed Minutes of Meeting',
             self::OTHER => 'Other',
         };
     }
