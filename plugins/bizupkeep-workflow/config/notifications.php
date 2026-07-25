@@ -28,7 +28,9 @@ return [
 
         'request_payment' => [
             'subject' => 'Payment required to continue your company registration',
-            'body' => 'Your company registration ({workflow_uuid}) is ready for payment.',
+            'body' => 'Your company registration ({workflow_uuid}) is ready for payment. '
+                . 'Log in to your Client Portal to pay - you can upload your supporting documents there '
+                . 'any time before or after paying.',
         ],
 
         'confirm_payment' => [
@@ -74,7 +76,9 @@ return [
 
         'request_payment' => [
             'subject' => 'Payment required to continue your company amendment',
-            'body' => 'Your company amendment ({workflow_uuid}) is ready for payment.',
+            'body' => 'Your company amendment ({workflow_uuid}) is ready for payment. '
+                . 'Log in to your Client Portal to pay - you can upload your supporting documents there '
+                . 'any time before or after paying.',
         ],
 
         'confirm_payment' => [

@@ -2,6 +2,12 @@
 
 All notable changes to BizUpKeep Workflow are documented in this file.
 
+## [1.14.2] - 2026-07-25
+
+### Changed
+
+- Text-only update to `config/notifications.php`'s `request_payment` template for both Company Registration and Company Amendment, reflecting astra-child's new "pay first, submit documents separately" flow - no code/logic change, just clearer wording for the client-facing notification.
+
 ## [1.6.0] - 2026-07-21
 
 ### Added
