@@ -51,7 +51,12 @@ interface WorkflowRepositoryInterface
      *
      * @return array<int,WorkflowSummary>
      */
-    public function summariesByStatus(string $workflowType, WorkflowStatus $status, int $limit = 50, int $offset = 0): array;
+    public function summariesByStatus(
+        string $workflowType,
+        WorkflowStatus $status,
+        int $limit = 50,
+        int $offset = 0
+    ): array;
 
     /**
      * Persist a workflow instance's current status/metadata snapshot.

@@ -105,6 +105,7 @@ final class WorkflowBoardPage
             wp_die(esc_html__('You do not have permission to access this page.', 'bizupkeep-workflow'));
         }
 
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display toggle, no mutation.
         $showAll = isset($_GET['show_all']) && $_GET['show_all'] === '1';
         $summaries = $this->allSummaries();
         $now = new DateTimeImmutable();
