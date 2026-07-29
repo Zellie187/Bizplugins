@@ -4,7 +4,7 @@
  * Plugin Name:       BizUpKeep Core
  * Plugin URI:        https://github.com/Zellie187/BizUpKeepWebsite
  * Description:       Core functionality for the BizUpKeep platform. Provides the application framework, integrations, and shared services for the BizUpKeep ecosystem, built on top of the BizHub Framework.
- * Version:           1.1.0
+ * Version:           1.3.0
  * Requires at least: 6.6
  * Requires PHP:      8.2
  * Requires Plugins:  bizhub
@@ -24,7 +24,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('BIZUPKEEP_CORE_VERSION', '1.1.0');
+define('BIZUPKEEP_CORE_VERSION', '1.3.0');
 define('BIZUPKEEP_CORE_FILE', __FILE__);
 define('BIZUPKEEP_CORE_PATH', plugin_dir_path(__FILE__));
 define('BIZUPKEEP_CORE_URL', plugin_dir_url(__FILE__));
@@ -33,6 +33,7 @@ define('BIZUPKEEP_CORE_BASENAME', plugin_basename(__FILE__));
 require_once BIZUPKEEP_CORE_PATH . 'vendor/autoload.php';
 
 use BizHub\Framework\Registries\ProviderRegistry;
+use BizUpKeep\Core\Admin\Providers\ServiceCatalogAdminServiceProvider;
 use BizUpKeep\Core\Bootstrap\DependencyGuard;
 use BizUpKeep\Core\Bootstrap\Plugin;
 use BizUpKeep\Core\Install\Activator;
@@ -81,6 +82,7 @@ add_action(
     'bizhub/register_providers',
     static function (ProviderRegistry $providerRegistry, Container $container): void {
         $providerRegistry->add(CoreServiceProvider::class);
+        $providerRegistry->add(ServiceCatalogAdminServiceProvider::class);
     },
     10,
     2

@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace BizUpKeep\Core\Install;
 
+use BizHub\Framework\Database\Drivers\WordPressDatabase;
+use BizUpKeep\Core\Services\ServiceRepository;
+
 /**
  * Handles activation-time setup for BizUpKeep Core.
  *
  * Deliberately does not go through the DI container: activation must
  * work reliably as a standalone, synchronous WordPress hook callback,
  * independent of BizHub's boot lifecycle (BizHub may not have booted
- * yet in the same request - see Bootstrap\DependencyGuard).
+ * yet in the same request - see Bootstrap\DependencyGuard). Schema
+ * migration and catalog seeding construct their own WordPressDatabase
+ * directly from the global $wpdb for the same reason.
  *
  * @package BizUpKeep\Core\Install
  */
@@ -24,8 +29,20 @@ final class Activator
         $this->setInstallTimestamp();
         $this->setPluginVersion();
         $this->createUploadDirectories();
+        $this->migrateAndSeedServiceCatalog();
+        (new RoleGrant())->install();
 
         flush_rewrite_rules();
+    }
+
+    private function migrateAndSeedServiceCatalog(): void
+    {
+        global $wpdb;
+
+        (new Migrator($wpdb, new Schema()))->migrate();
+
+        $repository = new ServiceRepository(new WordPressDatabase($wpdb));
+        (new ServiceCatalogSeeder($repository))->seed();
     }
 
     /**

@@ -17,3 +17,14 @@ parameters:
         # bizupkeep-core.php / Bootstrap\Constants::register(); no stub
         # package can know about them ahead of time.
         - '#^Constant BIZUPKEEP_CORE_[A-Z_]+ not found\.$#'
+
+        # wc_get_product_id_by_sku()/wc_get_product() and the WC_Product*
+        # classes are defined by the WooCommerce plugin at runtime (a
+        # Requires Plugins dependency of the ecosystem, not of this
+        # plugin directly) - php-stubs/wordpress-stubs covers WordPress
+        # core only, not WooCommerce, which has no equivalent stub
+        # package installed here.
+        - '#^Function wc_get_product_id_by_sku not found\.$#'
+        - '#^Class WC_Product(_Simple)? not found\.$#'
+        - '#Call to method [a-zA-Z_]+\(\) on an unknown class WC_Product\.$#'
+        - '#has invalid return type WC_Product\.$#'
