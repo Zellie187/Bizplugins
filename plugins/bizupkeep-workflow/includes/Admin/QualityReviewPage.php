@@ -329,10 +329,7 @@ final class QualityReviewPage
         $file = $this->validateUploadedFile();
 
         if ($file === null) {
-            return ['error', __(
-                'That upload could not be processed - please check the file (PDF, JPG or PNG, max 10MB) and try again.',
-                'bizupkeep-workflow'
-            )];
+            return ['error', $this->uploadFailedMessage()];
         }
 
         /*
@@ -355,10 +352,7 @@ final class QualityReviewPage
             try {
                 $this->documents->addVersion($targetDocumentUuid, $file['tmp_name'], $file['name'], $userId);
             } catch (\Throwable $exception) {
-                return ['error', __(
-                    'That upload could not be processed - please check the file (PDF, JPG or PNG, max 10MB) and try again.',
-                    'bizupkeep-workflow'
-                )];
+                return ['error', $this->uploadFailedMessage()];
             }
 
             return ['success', __('New version uploaded.', 'bizupkeep-workflow')];
@@ -389,10 +383,7 @@ final class QualityReviewPage
                 $userId
             );
         } catch (\Throwable $exception) {
-            return ['error', __(
-                'That upload could not be processed - please check the file (PDF, JPG or PNG, max 10MB) and try again.',
-                'bizupkeep-workflow'
-            )];
+            return ['error', $this->uploadFailedMessage()];
         }
 
         return ['success', __('Document uploaded.', 'bizupkeep-workflow')];
@@ -459,6 +450,19 @@ final class QualityReviewPage
     }
 
     /**
+     * Shared error copy for a rejected/failed document upload - kept in
+     * one place since both handleDocumentUpload() upload paths and
+     * handleBulkUpload() show it verbatim.
+     */
+    private function uploadFailedMessage(): string
+    {
+        return __(
+            'That upload could not be processed - please check the file (PDF, JPG or PNG, max 10MB) and try again.',
+            'bizupkeep-workflow'
+        );
+    }
+
+    /**
      * Read, validate, and return the uploaded file's PHP $_FILES entry,
      * or null if it's missing, failed, too large, or not an allowed
      * type. Mirrors the client-facing upload form's own validation
@@ -466,14 +470,19 @@ final class QualityReviewPage
      * DocumentService/DocumentStorageService enforce neither size nor
      * mime type themselves.
      *
+     * Both callers (handleDocumentUpload(), handleBulkUpload()) verify
+     * their own nonce before reaching this method.
+     *
      * @return array{name:string,tmp_name:string}|null
      */
     private function validateUploadedFile(string $fieldName = 'document'): ?array
     {
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified by the caller before this is used.
         if (empty($_FILES[$fieldName]) || ! is_array($_FILES[$fieldName])) {
             return null;
         }
 
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
         $file = $_FILES[$fieldName];
 
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
@@ -492,7 +501,7 @@ final class QualityReviewPage
             return null;
         }
 
-        $name = is_string($file['name'] ?? null) ? $file['name'] : '';
+        $name = is_string($file['name'] ?? null) ? sanitize_file_name($file['name']) : '';
         $extension = strtolower((string) pathinfo($name, PATHINFO_EXTENSION));
 
         if (! in_array($extension, self::ALLOWED_UPLOAD_EXTENSIONS, true)) {
@@ -857,10 +866,7 @@ final class QualityReviewPage
         $file = $this->validateUploadedFile('bulk_upload_document');
 
         if ($file === null) {
-            return ['error', __(
-                'That upload could not be processed - please check the file (PDF, JPG or PNG, max 10MB) and try again.',
-                'bizupkeep-workflow'
-            )];
+            return ['error', $this->uploadFailedMessage()];
         }
 
         $uuids = isset($_POST['workflow_uuids']) && is_array($_POST['workflow_uuids'])
@@ -1719,6 +1725,7 @@ final class QualityReviewPage
     {
         echo '<h3>' . esc_html__('Override Status (Advanced)', 'bizupkeep-workflow') . '</h3>';
         echo '<p>' . esc_html__(
+            // phpcs:ignore Generic.Files.LineLength.TooLong -- translatable text must stay a single string literal.
             'Force this application directly to a different status, bypassing its normal approval flow. Use only to unstick an application that cannot otherwise recover - every use is recorded in its history.',
             'bizupkeep-workflow'
         ) . '</p>';
@@ -1941,6 +1948,7 @@ final class QualityReviewPage
 
     private function param(string $key): string
     {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only query arg, no mutation.
         return isset($_GET[$key]) ? sanitize_text_field(wp_unslash($_GET[$key])) : '';
     }
 

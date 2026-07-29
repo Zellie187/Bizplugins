@@ -174,6 +174,7 @@ final class WorkflowAdminMenu
      */
     private function statusFilterFromRequest(): ?WorkflowStatus
     {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only status filter, no mutation.
         $raw = isset($_GET['status']) ? sanitize_text_field(wp_unslash($_GET['status'])) : '';
 
         foreach (WorkflowStatus::cases() as $status) {

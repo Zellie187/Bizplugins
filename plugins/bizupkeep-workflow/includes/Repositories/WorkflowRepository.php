@@ -94,8 +94,12 @@ final class WorkflowRepository implements WorkflowRepositoryInterface
     /**
      * {@inheritDoc}
      */
-    public function summariesByStatus(string $workflowType, WorkflowStatus $status, int $limit = 50, int $offset = 0): array
-    {
+    public function summariesByStatus(
+        string $workflowType,
+        WorkflowStatus $status,
+        int $limit = 50,
+        int $offset = 0
+    ): array {
         $rows = $this->database->findAll(
             self::INSTANCES_TABLE,
             ['workflow_type' => $workflowType, 'status' => $status->value],
