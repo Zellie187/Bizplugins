@@ -1,0 +1,61 @@
+name: PHP CI
+
+# Runs at the repo root, one job per plugin under plugins/*. The
+# per-plugin copies of this workflow (plugins/bizhub/.github/workflows,
+# plugins/bizupkeep-core/.github/workflows) predate the monorepo
+# consolidation and are never picked up by GitHub Actions from a
+# non-root location - this is the one that actually runs.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin:
+          - bizhub
+          - bizupkeep-core
+          - bizupkeep-workflow
+          - bizupkeep-bookkeeping
+
+    defaults:
+      run:
+        working-directory: plugins/${{ matrix.plugin }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+          tools: composer
+
+      - name: Validate composer.json
+        run: composer validate --no-check-publish
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: PHP syntax check
+        run: find includes -type f -name "*.php" -print0 | xargs -0 -n1 php -l
+
+      - name: PHPCS
+        run: vendor/bin/phpcs
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit=1024M
+
+      - name: PHPUnit
+        run: vendor/bin/phpunit
