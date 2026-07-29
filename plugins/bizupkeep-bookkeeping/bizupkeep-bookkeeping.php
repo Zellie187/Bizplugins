@@ -4,7 +4,7 @@
  * Plugin Name:       BizUpKeep Bookkeeping
  * Plugin URI:        https://bizupkeep.co.za
  * Description:       Double-entry bookkeeping (chart of accounts, income/expense capture, financial statements, and Sage/Xero/QuickBooks export) for the BizUpKeep platform. Extends the BizHub Framework.
- * Version:           1.7.0
+ * Version:           1.7.1
  * Requires at least: 6.7
  * Requires PHP:      8.2
  * Requires Plugins:  bizhub, bizupkeep-core
@@ -24,7 +24,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('BIZUPKEEP_BOOKKEEPING_VERSION', '1.7.0');
+define('BIZUPKEEP_BOOKKEEPING_VERSION', '1.7.1');
 define('BIZUPKEEP_BOOKKEEPING_FILE', __FILE__);
 define('BIZUPKEEP_BOOKKEEPING_PATH', plugin_dir_path(__FILE__));
 define('BIZUPKEEP_BOOKKEEPING_URL', plugin_dir_url(__FILE__));
