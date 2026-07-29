@@ -39,7 +39,7 @@ final class CsvWriter
 
         foreach ($rows as $row) {
             fputcsv($handle, array_map(
-                static fn (mixed $value): string => is_scalar($value) ? (string) $value : '',
+                static fn (mixed $value): string => self::escapeFormula(is_scalar($value) ? (string) $value : ''),
                 $row
             ), ',', '"', '\\');
         }
@@ -49,5 +49,32 @@ final class CsvWriter
         fclose($handle);
 
         return $csv === false ? '' : $csv;
+    }
+
+    /**
+     * Neutralize CSV formula injection (CWE-1236): a cell starting with
+     * =, +, -, or @ is interpreted as a formula by Excel/LibreOffice/etc
+     * when the exported file is opened, letting a client-supplied value
+     * (e.g. a transaction description, or an imported bank statement's
+     * own description column) execute arbitrary spreadsheet formulas on
+     * whoever opens the export. Prefixing with a single quote forces
+     * spreadsheet applications to treat the cell as plain text while
+     * leaving the value itself unchanged for any non-spreadsheet
+     * consumer of the CSV.
+     *
+     * A purely numeric value (e.g. "-800.00", every exporter's Amount
+     * column) is exempted: it starts with "-" but is not a formula, and
+     * quoting it would corrupt the exported figure for anyone importing
+     * the CSV back into accounting software.
+     */
+    private static function escapeFormula(string $value): string
+    {
+        if ($value === '' || is_numeric($value)) {
+            return $value;
+        }
+
+        return in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true)
+            ? "'" . $value
+            : $value;
     }
 }
