@@ -87,11 +87,62 @@ final class ApplicationController
 
     /**
      * Retrieve a single application.
+     *
+     * Ownership is enforced here rather than trusted from the route: an
+     * application belonging to a different client returns the same 404
+     * as an application that doesn't exist at all, so the endpoint
+     * never confirms another client's UUID is valid.
      */
     public function show(WP_REST_Request $request): WP_REST_Response|WP_Error
     {
+        $clientId = $this->currentClientId();
+
+        if ($clientId === null) {
+            return $this->applicationNotFound();
+        }
+
         try {
             $application = $this->applications->getApplication((string) $request->get_param('uuid'));
+        } catch (ApplicationNotFoundException $e) {
+            return new WP_Error('bizhub_application_not_found', $e->getMessage(), ['status' => 404]);
+        }
+
+        if ($application->getClientId() !== $clientId) {
+            return $this->applicationNotFound();
+        }
+
+        return new WP_REST_Response(ApplicationResource::make($application), 200);
+    }
+
+    /**
+     * Submit an application for review.
+     *
+     * Ownership must be checked here, before calling into the workflow
+     * service: ApplicationWorkflowService::submit() only verifies the
+     * application exists, not who it belongs to.
+     */
+    public function submit(WP_REST_Request $request): WP_REST_Response|WP_Error
+    {
+        $clientId = $this->currentClientId();
+
+        if ($clientId === null) {
+            return $this->applicationNotFound();
+        }
+
+        $uuid = (string) $request->get_param('uuid');
+
+        try {
+            $existing = $this->applications->getApplication($uuid);
+        } catch (ApplicationNotFoundException $e) {
+            return new WP_Error('bizhub_application_not_found', $e->getMessage(), ['status' => 404]);
+        }
+
+        if ($existing->getClientId() !== $clientId) {
+            return $this->applicationNotFound();
+        }
+
+        try {
+            $application = $this->workflow->submit($uuid);
         } catch (ApplicationNotFoundException $e) {
             return new WP_Error('bizhub_application_not_found', $e->getMessage(), ['status' => 404]);
         }
@@ -100,16 +151,26 @@ final class ApplicationController
     }
 
     /**
-     * Submit an application for review.
+     * Resolve the current WordPress user to their bizhub_clients.id, or
+     * null if they have no client account - mirrors index()'s existing
+     * WP-user-ID-to-client-ID resolution so show()/submit() enforce the
+     * same ownership boundary the list endpoint already does.
      */
-    public function submit(WP_REST_Request $request): WP_REST_Response|WP_Error
+    private function currentClientId(): ?int
     {
         try {
-            $application = $this->workflow->submit((string) $request->get_param('uuid'));
-        } catch (ApplicationNotFoundException $e) {
-            return new WP_Error('bizhub_application_not_found', $e->getMessage(), ['status' => 404]);
+            return $this->clients->getClientByWpUserId(get_current_user_id())->getId();
+        } catch (ClientNotFoundException) {
+            return null;
         }
+    }
 
-        return new WP_REST_Response(ApplicationResource::make($application), 200);
+    private function applicationNotFound(): WP_Error
+    {
+        return new WP_Error(
+            'bizhub_application_not_found',
+            __('Application not found.', 'bizhub'),
+            ['status' => 404]
+        );
     }
 }
