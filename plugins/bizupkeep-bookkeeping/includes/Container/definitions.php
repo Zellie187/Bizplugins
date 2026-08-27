@@ -8,6 +8,7 @@ use BizHub\Bookkeeping\Accounts\CompanySettingsRepository;
 use BizHub\Bookkeeping\BankImport\BankImportService;
 use BizHub\Bookkeeping\BankImport\ImportMappingRepository;
 use BizHub\Bookkeeping\BankImport\StagedTransactionRepository;
+use BizHub\Bookkeeping\Billing\InternalCompanyProvider;
 use BizHub\Bookkeeping\Billing\SubscriptionRepository;
 use BizHub\Bookkeeping\Billing\SubscriptionService;
 use BizHub\Bookkeeping\Contracts\AccountRepositoryInterface;
@@ -17,6 +18,7 @@ use BizHub\Bookkeeping\Contracts\CompanySettingsRepositoryInterface;
 use BizHub\Bookkeeping\Contracts\CustomerRepositoryInterface;
 use BizHub\Bookkeeping\Contracts\FinancialStatementsServiceInterface;
 use BizHub\Bookkeeping\Contracts\ImportMappingRepositoryInterface;
+use BizHub\Bookkeeping\Contracts\InternalCompanyProviderInterface;
 use BizHub\Bookkeeping\Contracts\InvoiceRepositoryInterface;
 use BizHub\Bookkeeping\Contracts\InvoiceServiceInterface;
 use BizHub\Bookkeeping\Contracts\JournalRepositoryInterface;
@@ -64,6 +66,7 @@ return [
 
     SubscriptionRepositoryInterface::class => DI\autowire(SubscriptionRepository::class),
     SubscriptionServiceInterface::class => DI\autowire(SubscriptionService::class),
+    InternalCompanyProviderInterface::class => DI\autowire(InternalCompanyProvider::class),
 
     ImportMappingRepositoryInterface::class => DI\autowire(ImportMappingRepository::class),
     StagedTransactionRepositoryInterface::class => DI\autowire(StagedTransactionRepository::class),

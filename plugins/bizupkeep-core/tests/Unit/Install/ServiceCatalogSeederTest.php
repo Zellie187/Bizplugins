@@ -71,6 +71,15 @@ final class ServiceCatalogSeederTest extends TestCase
         }
     }
 
+    public function testSeededRowsHaveNoPriceUntilStaffConfiguresOne(): void
+    {
+        $this->seeder->seed();
+
+        foreach ($this->repository->findAll() as $service) {
+            self::assertNull($service->priceMinor);
+        }
+    }
+
     public function testSeedingTwiceDoesNotDuplicateRows(): void
     {
         $this->seeder->seed();
@@ -91,6 +100,7 @@ final class ServiceCatalogSeederTest extends TestCase
             serviceKey: $edited->serviceKey,
             name: $edited->name,
             pricingMode: $edited->pricingMode,
+            priceMinor: 65000,
             productSku: $edited->productSku,
             productSlug: $edited->productSlug,
             vatTreatment: ServiceVatTreatment::Exclusive,

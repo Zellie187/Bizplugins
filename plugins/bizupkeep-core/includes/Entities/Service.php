@@ -14,14 +14,15 @@ use InvalidArgumentException;
  * code-facing identity for a purchasable service (Registration, Annual
  * Return Fee, an Amendment combination, Bookkeeping Monthly
  * Subscription) carrying just enough metadata (VAT treatment,
- * recurring-or-not) for a downstream consumer to reason about a
- * purchase without re-deriving it ad hoc. Deliberately carries no
- * price: Registration/Amendment prices live on their real,
- * staff-managed WooCommerce products, Annual Return is per-client
- * quoted, and Bookkeeping Monthly's fixed price already lives on its
- * own WooCommerce product - inventing a second, catalog-owned price
- * here would risk silently diverging from the one that actually
- * charges the client.
+ * recurring-or-not, price) for a downstream consumer to reason about a
+ * purchase without re-deriving it ad hoc. `priceMinor` is the
+ * canonical price for a `Fixed`-pricing service (in cents; `null`
+ * means "not yet configured by staff", not "free") - `product_sku`/
+ * `product_slug` are retained only as historical metadata from the
+ * now-removed WooCommerce-backed pricing this replaced, and are no
+ * longer read by anything. A `Quoted`-pricing service (Annual Return)
+ * never has a catalog price at all - its amount always comes from the
+ * workflow's own per-client quote.
  *
  * @package BizUpKeep\Core\Entities
  */
@@ -32,6 +33,7 @@ final readonly class Service
         public string $serviceKey,
         public string $name,
         public ServicePricingMode $pricingMode,
+        public ?int $priceMinor,
         public ?string $productSku,
         public ?string $productSlug,
         public ServiceVatTreatment $vatTreatment,
@@ -51,6 +53,17 @@ final readonly class Service
 
         if ($this->name === '') {
             throw new InvalidArgumentException('Service name cannot be empty.');
+        }
+
+        if ($this->pricingMode === ServicePricingMode::Quoted && $this->priceMinor !== null) {
+            throw new InvalidArgumentException(
+                'A Quoted-pricing service cannot have a catalog priceMinor - '
+                . 'its amount always comes from the per-client quote.'
+            );
+        }
+
+        if ($this->priceMinor !== null && $this->priceMinor < 0) {
+            throw new InvalidArgumentException('Service priceMinor cannot be negative.');
         }
 
         $hasSku = $this->productSku !== null && $this->productSku !== '';

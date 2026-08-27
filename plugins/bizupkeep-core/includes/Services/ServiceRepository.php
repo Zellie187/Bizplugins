@@ -66,6 +66,7 @@ final class ServiceRepository implements ServiceRepositoryInterface
             'service_key' => $service->serviceKey,
             'name' => $service->name,
             'pricing_mode' => $service->pricingMode->value,
+            'price_minor' => $service->priceMinor,
             'product_sku' => $service->productSku,
             'product_slug' => $service->productSlug,
             'vat_treatment' => $service->vatTreatment->value,
@@ -87,6 +88,9 @@ final class ServiceRepository implements ServiceRepositoryInterface
             serviceKey: (string) $row['service_key'],
             name: (string) $row['name'],
             pricingMode: ServicePricingMode::from((string) $row['pricing_mode']),
+            priceMinor: isset($row['price_minor']) && $row['price_minor'] !== null
+                ? (int) $row['price_minor']
+                : null,
             productSku: isset($row['product_sku']) && $row['product_sku'] !== null
                 ? (string) $row['product_sku']
                 : null,

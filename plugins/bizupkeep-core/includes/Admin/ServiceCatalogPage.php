@@ -10,19 +10,17 @@ use BizUpKeep\Core\Entities\Service;
 use BizUpKeep\Core\Enums\ServicePricingMode;
 use BizUpKeep\Core\Enums\ServiceVatTreatment;
 use BizUpKeep\Core\Policies\Capabilities;
-use BizUpKeep\Core\Services\ServiceSyncService;
 use DateTimeImmutable;
 
 /**
  * Staff-facing view/edit of the Service catalog. The row set itself is
  * fixed by ServiceCatalogSeeder at activation - this page edits the
  * staff-editable metadata (VAT treatment, recurring flag, notes,
- * active) that BizUpKeep Bookkeeping's revenue automation will later
- * read via ServiceRepositoryInterface::findByKey(), and for
- * Fixed-pricing rows, the linked WooCommerce product's price (read
- * live via ServiceSyncService, never cached here). No create/delete
- * UI, deliberately: adding a new service is a code-level change
- * (a new seed row + real WooCommerce product), not a staff task.
+ * active, and for Fixed-pricing rows, the catalog-owned price) that
+ * BizUpKeep Payments reads via ServiceRepositoryInterface::findByKey()
+ * when starting a checkout. No create/delete UI, deliberately: adding
+ * a new service is a code-level change (a new seed row), not a staff
+ * task.
  *
  * @package BizUpKeep\Core\Admin
  */
@@ -36,7 +34,6 @@ final class ServiceCatalogPage
 
     public function __construct(
         private readonly ServiceRepositoryInterface $services,
-        private readonly ServiceSyncService $sync,
         private readonly AuthorizationServiceInterface $authorization
     ) {
     }
@@ -55,7 +52,7 @@ final class ServiceCatalogPage
 
         echo '<div class="wrap"><h1>' . esc_html__('Service Catalog', 'bizupkeep-core') . '</h1>';
         echo '<p>' . esc_html__(
-            'VAT treatment, recurring flag, and notes per service. Pricing is managed on the WooCommerce product.',
+            'Price, VAT treatment, recurring flag, and notes per service.',
             'bizupkeep-core'
         ) . '</p>';
 
@@ -84,12 +81,14 @@ final class ServiceCatalogPage
         }
 
         $vatTreatment = ServiceVatTreatment::tryFrom($this->postParam('vat_treatment')) ?? $service->vatTreatment;
+        $priceMinor = $this->resolveSubmittedPrice($service);
 
         $this->services->save(new Service(
             uuid: $service->uuid,
             serviceKey: $service->serviceKey,
             name: $service->name,
             pricingMode: $service->pricingMode,
+            priceMinor: $priceMinor,
             productSku: $service->productSku,
             productSlug: $service->productSlug,
             vatTreatment: $vatTreatment,
@@ -100,14 +99,17 @@ final class ServiceCatalogPage
             updatedAt: new DateTimeImmutable(),
         ));
 
-        return $this->applySubmittedPrice($service)
-            ?? ['success', __('Service updated.', 'bizupkeep-core')];
+        return ['success', __('Service updated.', 'bizupkeep-core')];
     }
 
     /**
-     * @return array{0:string,1:string}|null
+     * A Quoted-pricing service (Annual Return) never has a catalog
+     * price, regardless of what was submitted - its amount always
+     * comes from the workflow's own per-client quote. For a
+     * Fixed-pricing service, an empty/invalid submission leaves the
+     * existing price untouched rather than clearing it.
      */
-    private function applySubmittedPrice(Service $service): ?array
+    private function resolveSubmittedPrice(Service $service): ?int
     {
         if ($service->pricingMode !== ServicePricingMode::Fixed) {
             return null;
@@ -116,19 +118,10 @@ final class ServiceCatalogPage
         $priceParam = $this->postParam('price');
 
         if ($priceParam === '' || ! is_numeric($priceParam) || (float) $priceParam < 0) {
-            return null;
+            return $service->priceMinor;
         }
 
-        $priceMinor = (int) round(round((float) $priceParam, 2) * 100);
-
-        if ($this->sync->updatePrice($service, $priceMinor)) {
-            return null;
-        }
-
-        return ['error', __(
-            'Other fields saved, but the price could not be updated - no matching WooCommerce product was found.',
-            'bizupkeep-core'
-        )];
+        return (int) round(round((float) $priceParam, 2) * 100);
     }
 
     private function findServiceByUuid(string $uuid): ?Service
@@ -149,7 +142,6 @@ final class ServiceCatalogPage
         echo '<table class="widefat"><thead><tr>'
             . '<th>' . esc_html__('Key', 'bizupkeep-core') . '</th>'
             . '<th>' . esc_html__('Name', 'bizupkeep-core') . '</th>'
-            . '<th>' . esc_html__('Product', 'bizupkeep-core') . '</th>'
             . '<th>' . esc_html__('Price (R)', 'bizupkeep-core') . '</th>'
             . '<th>' . esc_html__('VAT Treatment', 'bizupkeep-core') . '</th>'
             . '<th>' . esc_html__('Recurring', 'bizupkeep-core') . '</th>'
@@ -167,8 +159,6 @@ final class ServiceCatalogPage
 
     private function renderRow(Service $service): void
     {
-        $productId = $this->sync->resolveProductId($service);
-
         echo '<tr><form method="post">';
         wp_nonce_field(self::SAVE_NONCE_ACTION, self::SAVE_NONCE_FIELD);
         echo '<input type="hidden" name="bizupkeep_core_service_catalog_action" value="save" />';
@@ -176,8 +166,7 @@ final class ServiceCatalogPage
 
         echo '<td><code>' . esc_html($service->serviceKey) . '</code></td>';
         echo '<td>' . esc_html($service->name) . '</td>';
-        echo '<td>' . $this->productLink($service, $productId) . '</td>';
-        echo '<td>' . $this->renderPriceCell($service, $productId) . '</td>';
+        echo '<td>' . $this->renderPriceCell($service) . '</td>';
 
         echo '<td><select name="vat_treatment">';
         foreach (ServiceVatTreatment::cases() as $treatment) {
@@ -200,55 +189,21 @@ final class ServiceCatalogPage
         echo '</form></tr>';
     }
 
-    private function productLink(Service $service, ?int $productId): string
-    {
-        $label = $service->productSku ?? $service->productSlug;
-
-        if ($productId === null) {
-            return esc_html((string) $label);
-        }
-
-        $editUrl = get_edit_post_link($productId, 'raw');
-
-        if (! is_string($editUrl)) {
-            return esc_html((string) $label);
-        }
-
-        return '<a href="' . esc_url($editUrl) . '">' . esc_html((string) $label) . '</a>';
-    }
-
-    private function renderPriceCell(Service $service, ?int $productId): string
+    private function renderPriceCell(Service $service): string
     {
         if ($service->pricingMode === ServicePricingMode::Quoted) {
             return esc_html__('Per-client quote (set on the workflow)', 'bizupkeep-core');
         }
 
-        if ($productId === null && ! $this->canAutoCreate($service)) {
-            return esc_html__('Not found in WooCommerce', 'bizupkeep-core');
+        if ($service->priceMinor === null) {
+            return '<input type="number" step="0.01" min="0" name="price" value="" style="width:6em;" />'
+                . '<br /><small>' . esc_html__('Not yet configured.', 'bizupkeep-core') . '</small>';
         }
 
-        $priceMinor = $productId !== null ? ($this->sync->currentPriceMinor($service) ?? 0) : 0;
-        $rands = number_format($priceMinor / 100, 2, '.', '');
+        $rands = number_format($service->priceMinor / 100, 2, '.', '');
 
-        $field = '<input type="number" step="0.01" min="0" name="price" value="' . esc_attr($rands)
+        return '<input type="number" step="0.01" min="0" name="price" value="' . esc_attr($rands)
             . '" style="width:6em;" />';
-
-        if ($productId === null) {
-            $field .= '<br /><small>' . esc_html__('Will be created on save.', 'bizupkeep-core') . '</small>';
-        }
-
-        return $field;
-    }
-
-    /**
-     * Only Bookkeeping Monthly's placeholder product may be lazily
-     * created from a price save here, mirroring
-     * ServiceSyncService::updatePrice()'s own rule exactly -
-     * Registration/Amendment are update-only.
-     */
-    private function canAutoCreate(Service $service): bool
-    {
-        return $service->serviceKey === 'bookkeeping_monthly';
     }
 
     /**

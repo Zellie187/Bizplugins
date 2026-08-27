@@ -7,6 +7,7 @@ namespace BizHub\Bookkeeping\Admin;
 use BizHub\Bookkeeping\Contracts\AccountServiceInterface;
 use BizHub\Bookkeeping\Contracts\CompanySettingsRepositoryInterface;
 use BizHub\Bookkeeping\Contracts\FinancialStatementsServiceInterface;
+use BizHub\Bookkeeping\Contracts\InternalCompanyProviderInterface;
 use BizHub\Bookkeeping\Contracts\RecurringTransactionServiceInterface;
 use BizHub\Bookkeeping\Contracts\SubscriptionServiceInterface;
 use BizHub\Bookkeeping\Contracts\TransactionCaptureServiceInterface;
@@ -58,8 +59,6 @@ final class InternalBooksPage
     public const SLUG = 'bizupkeep-bookkeeping-internal';
 
     public const EXPORT_ACTION = 'bizupkeep_bookkeeping_internal_export';
-
-    private const OPTION_COMPANY_UUID = 'bizupkeep_bookkeeping_internal_company_uuid';
 
     /**
      * Extends A2Z's own subscription far enough into the future that
@@ -119,7 +118,8 @@ final class InternalBooksPage
         private readonly QuickBooksOnlineExporter $quickBooksExporter,
         private readonly XeroExporter $xeroExporter,
         private readonly SageExporter $sageExporter,
-        private readonly AuthorizationServiceInterface $authorization
+        private readonly AuthorizationServiceInterface $authorization,
+        private readonly InternalCompanyProviderInterface $internalCompany
     ) {
     }
 
@@ -233,16 +233,16 @@ final class InternalBooksPage
      */
     private function resolveInternalCompany(): ?Company
     {
-        $companyUuid = get_option(self::OPTION_COMPANY_UUID);
+        $companyUuid = $this->internalCompany->getUuid();
 
-        if (! is_string($companyUuid) || $companyUuid === '') {
+        if ($companyUuid === null) {
             return null;
         }
 
         try {
             return $this->companies->getCompany($companyUuid);
         } catch (CompanyNotFoundException) {
-            delete_option(self::OPTION_COMPANY_UUID);
+            $this->internalCompany->clear();
 
             return null;
         }
@@ -331,7 +331,7 @@ final class InternalBooksPage
         $this->accounts->ensureSeeded($companyUuid);
         $this->subscriptions->extend($companyUuid, self::SUBSCRIPTION_EXTEND_DAYS);
 
-        update_option(self::OPTION_COMPANY_UUID, $companyUuid);
+        $this->internalCompany->setUuid($companyUuid);
 
         return ['success', __('Internal Books set up. Refresh to continue.', 'bizupkeep-bookkeeping')];
     }

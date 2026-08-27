@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace BizUpKeep\Core\Bootstrap;
 
+use BizUpKeep\Core\Install\Migrator;
+use BizUpKeep\Core\Install\Schema;
+
 /**
  * BizUpKeep Core's WordPress-facing bootstrap.
  *
@@ -39,10 +42,33 @@ final class Plugin
     {
         Constants::register();
 
+        $this->maybeUpgradeDatabase();
+
         add_action('init', [$this, 'init']);
         add_action('plugins_loaded', [$this, 'loadTextdomain']);
         add_action('wp_enqueue_scripts', [$this, 'enqueueFrontendAssets']);
         add_action('admin_enqueue_scripts', [$this, 'enqueueAdminAssets']);
+    }
+
+    /**
+     * Bring an already-active install's schema up to date. Activator
+     * only runs on the WordPress activation hook, so a schema change
+     * shipped in a plugin update (as opposed to a fresh install) would
+     * otherwise never reach a site that's already active - this is the
+     * boot-time counterpart that closes that gap. Bypasses the DI
+     * container and constructs Migrator directly from the global
+     * $wpdb, matching Activator's own established reasoning for why
+     * schema work stays independent of BizHub's container lifecycle.
+     */
+    private function maybeUpgradeDatabase(): void
+    {
+        global $wpdb;
+
+        $migrator = new Migrator($wpdb, new Schema());
+
+        if ($migrator->needsMigration()) {
+            $migrator->migrate();
+        }
     }
 
     /**

@@ -32,6 +32,7 @@ final class Schema
                 service_key VARCHAR(50) NOT NULL,
                 name VARCHAR(150) NOT NULL,
                 pricing_mode VARCHAR(20) NOT NULL,
+                price_minor INT UNSIGNED NULL,
                 product_sku VARCHAR(100) NULL,
                 product_slug VARCHAR(200) NULL,
                 vat_treatment VARCHAR(20) NOT NULL,

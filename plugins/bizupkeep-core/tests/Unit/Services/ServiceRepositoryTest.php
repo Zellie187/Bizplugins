@@ -36,6 +36,7 @@ final class ServiceRepositoryTest extends TestCase
         self::assertSame($service->uuid, $found->uuid);
         self::assertSame($service->name, $found->name);
         self::assertSame(ServicePricingMode::Fixed, $found->pricingMode);
+        self::assertSame(65000, $found->priceMinor);
         self::assertSame('new-company-registration', $found->productSlug);
         self::assertNull($found->productSku);
         self::assertSame(ServiceVatTreatment::None, $found->vatTreatment);
@@ -58,6 +59,7 @@ final class ServiceRepositoryTest extends TestCase
             serviceKey: $service->serviceKey,
             name: $service->name,
             pricingMode: $service->pricingMode,
+            priceMinor: 70000,
             productSku: $service->productSku,
             productSlug: $service->productSlug,
             vatTreatment: ServiceVatTreatment::Exclusive,
@@ -74,6 +76,7 @@ final class ServiceRepositoryTest extends TestCase
 
         self::assertNotNull($found);
         self::assertSame(ServiceVatTreatment::Exclusive, $found->vatTreatment);
+        self::assertSame(70000, $found->priceMinor);
         self::assertTrue($found->isRecurring);
         self::assertSame('Updated by staff', $found->notes);
         self::assertFalse($found->isActive);
@@ -86,6 +89,8 @@ final class ServiceRepositoryTest extends TestCase
         $this->repository->save($this->makeService(
             serviceKey: 'annual_return_fee',
             uuid: '22222222-2222-2222-2222-222222222222',
+            pricingMode: ServicePricingMode::Quoted,
+            priceMinor: null,
             productSlug: null,
             productSku: 'bizupkeep-annual-return-fee',
             isActive: false
@@ -99,6 +104,8 @@ final class ServiceRepositoryTest extends TestCase
     private function makeService(
         string $uuid = '11111111-1111-1111-1111-111111111111',
         string $serviceKey = 'registration',
+        ServicePricingMode $pricingMode = ServicePricingMode::Fixed,
+        ?int $priceMinor = 65000,
         ?string $productSku = null,
         ?string $productSlug = 'new-company-registration',
         bool $isActive = true
@@ -107,7 +114,8 @@ final class ServiceRepositoryTest extends TestCase
             uuid: $uuid,
             serviceKey: $serviceKey,
             name: 'Company Registration',
-            pricingMode: ServicePricingMode::Fixed,
+            pricingMode: $pricingMode,
+            priceMinor: $priceMinor,
             productSku: $productSku,
             productSlug: $productSlug,
             vatTreatment: ServiceVatTreatment::None,

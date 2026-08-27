@@ -57,9 +57,39 @@ final class ServiceTest extends TestCase
         self::assertNull($service->productSku);
     }
 
+    public function testRejectsPriceMinorOnQuotedPricing(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->makeService(pricingMode: ServicePricingMode::Quoted, priceMinor: 5000);
+    }
+
+    public function testRejectsNegativePriceMinor(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->makeService(priceMinor: -1);
+    }
+
+    public function testAcceptsNullPriceMinorOnFixedPricing(): void
+    {
+        $service = $this->makeService(priceMinor: null);
+
+        self::assertNull($service->priceMinor);
+    }
+
+    public function testAcceptsPriceMinorOnFixedPricing(): void
+    {
+        $service = $this->makeService(priceMinor: 65000);
+
+        self::assertSame(65000, $service->priceMinor);
+    }
+
     private function makeService(
         string $serviceKey = 'registration',
         string $name = 'Company Registration',
+        ServicePricingMode $pricingMode = ServicePricingMode::Fixed,
+        ?int $priceMinor = null,
         ?string $productSku = null,
         ?string $productSlug = 'new-company-registration'
     ): Service {
@@ -67,7 +97,8 @@ final class ServiceTest extends TestCase
             uuid: '11111111-1111-1111-1111-111111111111',
             serviceKey: $serviceKey,
             name: $name,
-            pricingMode: ServicePricingMode::Fixed,
+            pricingMode: $pricingMode,
+            priceMinor: $priceMinor,
             productSku: $productSku,
             productSlug: $productSlug,
             vatTreatment: ServiceVatTreatment::None,

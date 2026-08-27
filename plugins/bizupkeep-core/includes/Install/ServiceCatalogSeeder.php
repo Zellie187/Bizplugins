@@ -16,14 +16,14 @@ use DateTimeImmutable;
  * (e.g. changing vat_treatment once a real decision is made) survives
  * every future reactivation/upgrade untouched.
  *
- * The row set mirrors astra-child/functions.php's real WooCommerce
- * product identifiers (BIZUPKEEP_REGISTRATION_PRODUCT_SLUG,
- * BIZUPKEEP_ANNUAL_RETURN_FEE_PRODUCT_SKU,
- * BIZUPKEEP_AMENDMENT_PRODUCT_SLUGS,
- * BIZUPKEEP_BOOKKEEPING_SUBSCRIPTION_PRODUCT_SKU) as of the current
- * checkout flows - this file is the source of truth for the catalog,
- * the theme constants remain the source of truth for the real
- * WooCommerce products themselves.
+ * The `product_sku`/`product_slug` fields are retained only as
+ * historical identifiers from when this catalog's rows were linked to
+ * real WooCommerce products - nothing reads them anymore now that
+ * pricing is catalog-owned (`price_minor`). Every `Fixed`-pricing row
+ * seeds with `price_minor: null` ("not yet configured") - staff must
+ * set a real price via the Service Catalog admin page before that
+ * service can actually be sold; the seeder has no way to know real
+ * prices.
  *
  * vat_treatment defaults to None for every service except Bookkeeping
  * Monthly: no VAT handling exists anywhere in the current checkout
@@ -53,6 +53,7 @@ final class ServiceCatalogSeeder
                 serviceKey: $row['service_key'],
                 name: $row['name'],
                 pricingMode: $row['pricing_mode'],
+                priceMinor: null,
                 productSku: $row['product_sku'],
                 productSlug: $row['product_slug'],
                 vatTreatment: $row['vat_treatment'],

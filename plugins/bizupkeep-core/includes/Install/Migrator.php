@@ -20,7 +20,7 @@ final class Migrator
     /**
      * Must be bumped whenever Schema's table definitions change.
      */
-    public const CURRENT_VERSION = '1.0.0';
+    public const CURRENT_VERSION = '1.1.0';
 
     public function __construct(
         private readonly wpdb $wpdb,
