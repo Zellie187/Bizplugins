@@ -18,6 +18,7 @@
 
 declare(strict_types=1);
 
+use BizHub\Payments\Http\Controllers\SnapScanWebhookController;
 use BizHub\Payments\Http\Controllers\YocoWebhookController;
 
 if (! defined('ABSPATH')) {
@@ -47,6 +48,19 @@ register_rest_route(
     [
         'methods' => 'POST',
         'callback' => [$yocoWebhookController, 'handle'],
+        'permission_callback' => '__return_true',
+    ]
+);
+
+/** @var SnapScanWebhookController $snapScanWebhookController */
+$snapScanWebhookController = $container->get(SnapScanWebhookController::class);
+
+register_rest_route(
+    BIZUPKEEP_PAYMENTS_REST_NAMESPACE,
+    '/webhooks/snapscan',
+    [
+        'methods' => 'POST',
+        'callback' => [$snapScanWebhookController, 'handle'],
         'permission_callback' => '__return_true',
     ]
 );

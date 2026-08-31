@@ -9,18 +9,19 @@ use BizHub\Payments\Contracts\PaymentAttemptRepositoryInterface;
 use BizHub\Payments\Contracts\PaymentConfirmationServiceInterface;
 use BizHub\Payments\Contracts\PaymentGatewayInterface;
 use BizHub\Payments\Contracts\WebhookEventLogRepositoryInterface;
-use BizHub\Payments\Gateways\Yoco\YocoGateway;
+use BizHub\Payments\Gateways\SnapScan\SnapScanGateway;
 
 /**
- * Public, unauthenticated REST endpoint Yoco delivers payment webhooks
- * to - see AbstractWebhookController for the shared handling logic.
+ * Public, unauthenticated REST endpoint SnapScan delivers payment
+ * webhooks to - see AbstractWebhookController for the shared handling
+ * logic.
  *
  * @package BizHub\Payments\Http\Controllers
  */
-final class YocoWebhookController extends AbstractWebhookController
+final class SnapScanWebhookController extends AbstractWebhookController
 {
     public function __construct(
-        private readonly YocoGateway $yocoGateway,
+        private readonly SnapScanGateway $snapScanGateway,
         WebhookEventLogRepositoryInterface $webhookLog,
         PaymentAttemptRepositoryInterface $attempts,
         PaymentConfirmationServiceInterface $confirmation,
@@ -31,6 +32,6 @@ final class YocoWebhookController extends AbstractWebhookController
 
     protected function gateway(): PaymentGatewayInterface
     {
-        return $this->yocoGateway;
+        return $this->snapScanGateway;
     }
 }

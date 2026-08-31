@@ -28,6 +28,12 @@ final class PaymentSettingsPage
         ['option' => 'bizupkeep_payments_yoco_public_key', 'label' => 'Yoco Public Key', 'type' => 'text'],
         ['option' => 'bizupkeep_payments_yoco_secret_key', 'label' => 'Yoco Secret Key', 'type' => 'password'],
         ['option' => 'bizupkeep_payments_yoco_webhook_secret', 'label' => 'Yoco Webhook Secret', 'type' => 'password'],
+        ['option' => 'bizupkeep_payments_snapscan_snap_code', 'label' => 'SnapScan Snap Code', 'type' => 'text'],
+        [
+            'option' => 'bizupkeep_payments_snapscan_webhook_key',
+            'label' => 'SnapScan Webhook Key',
+            'type' => 'password',
+        ],
     ];
 
     public function __construct(
