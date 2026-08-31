@@ -16,6 +16,7 @@ use BizHub\Payments\Contracts\PaymentAttemptRepositoryInterface;
 use BizHub\Payments\Contracts\PaymentAttemptServiceInterface;
 use BizHub\Payments\Contracts\PaymentGatewayRegistryInterface;
 use BizHub\Payments\DTO\CheckoutRequest;
+use BizHub\Payments\DTO\PaymentAttemptStart;
 use BizHub\Payments\Entities\PaymentAttempt;
 use BizHub\Payments\Enums\GatewayName;
 use BizHub\Payments\Enums\PaymentAttemptStatus;
@@ -44,7 +45,7 @@ final class PaymentAttemptService implements PaymentAttemptServiceInterface
     ) {
     }
 
-    public function startForWorkflow(string $workflowUuid, int $wpUserId, GatewayName $gateway): PaymentAttempt
+    public function startForWorkflow(string $workflowUuid, int $wpUserId, GatewayName $gateway): PaymentAttemptStart
     {
         $instance = $this->workflows->find($workflowUuid);
 
@@ -68,7 +69,7 @@ final class PaymentAttemptService implements PaymentAttemptServiceInterface
         string $companyUuid,
         int $wpUserId,
         GatewayName $gateway
-    ): PaymentAttempt {
+    ): PaymentAttemptStart {
         $company = $this->ownedCompany($wpUserId, $companyUuid);
         $service = $this->requireService('bookkeeping_monthly');
         $amountMinor = $this->resolveAmountMinor($service, null);
@@ -83,7 +84,7 @@ final class PaymentAttemptService implements PaymentAttemptServiceInterface
         int $wpUserId,
         int $amountMinor,
         ?string $workflowUuid
-    ): PaymentAttempt {
+    ): PaymentAttemptStart {
         $attempt = new PaymentAttempt(
             uuid: Uuid::generate(),
             gateway: $gateway,
@@ -117,7 +118,7 @@ final class PaymentAttemptService implements PaymentAttemptServiceInterface
         $redirected = $attempt->withRedirected($result->gatewayReference);
         $this->attempts->save($redirected);
 
-        return $redirected;
+        return new PaymentAttemptStart($redirected, $result->redirectUrl);
     }
 
     private function resolveAmountMinor(Service $service, ?WorkflowInstance $instance): int

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace BizHub\Payments\Contracts;
 
-use BizHub\Payments\Entities\PaymentAttempt;
+use BizHub\Payments\DTO\PaymentAttemptStart;
 use BizHub\Payments\Enums\GatewayName;
 use BizHub\Payments\Exceptions\GatewayException;
 use BizHub\Payments\Exceptions\ValidationException;
@@ -30,7 +30,7 @@ interface PaymentAttemptServiceInterface
      *                              no price configured yet.
      * @throws GatewayException    If the gateway rejects the checkout-creation request.
      */
-    public function startForWorkflow(string $workflowUuid, int $wpUserId, GatewayName $gateway): PaymentAttempt;
+    public function startForWorkflow(string $workflowUuid, int $wpUserId, GatewayName $gateway): PaymentAttemptStart;
 
     /**
      * Start a payment for the Bookkeeping Monthly subscription -
@@ -46,5 +46,5 @@ interface PaymentAttemptServiceInterface
         string $companyUuid,
         int $wpUserId,
         GatewayName $gateway
-    ): PaymentAttempt;
+    ): PaymentAttemptStart;
 }
