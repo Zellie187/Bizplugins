@@ -110,9 +110,9 @@ final class PaymentAttemptService implements PaymentAttemptServiceInterface
             currency: 'ZAR',
             reference: $attempt->uuid,
             description: $service->name,
-            successUrl: $this->returnUrl('success', $attempt->uuid),
-            cancelUrl: $this->returnUrl('cancelled', $attempt->uuid),
-            failureUrl: $this->returnUrl('failed', $attempt->uuid),
+            successUrl: $this->returnUrl('success', $attempt->uuid, $workflowUuid),
+            cancelUrl: $this->returnUrl('cancelled', $attempt->uuid, $workflowUuid),
+            failureUrl: $this->returnUrl('failed', $attempt->uuid, $workflowUuid),
         ));
 
         $redirected = $attempt->withRedirected($result->gatewayReference);
@@ -175,11 +175,24 @@ final class PaymentAttemptService implements PaymentAttemptServiceInterface
         return $company;
     }
 
-    private function returnUrl(string $outcome, string $attemptUuid): string
+    /**
+     * Route the client back to wherever they can actually see this
+     * payment's outcome - My Applications for a workflow-scoped
+     * payment, My Bookkeeping for a subscription payment (which has no
+     * workflow instance) - rather than the bare homepage, which has
+     * nowhere to render a "payment received" notice at all. See
+     * bizupkeep_child_render_payment_outcome_notice() in the theme for
+     * what actually reads these two query args.
+     */
+    private function returnUrl(string $outcome, string $attemptUuid, ?string $workflowUuid): string
     {
+        $base = $workflowUuid !== null
+            ? home_url('/client-portal/client-portal-applications/')
+            : home_url('/client-portal/client-portal-bookkeeping/');
+
         return add_query_arg(
             ['bizupkeep_payment_attempt' => $attemptUuid, 'bizupkeep_payment_outcome' => $outcome],
-            home_url('/')
+            $base
         );
     }
 }

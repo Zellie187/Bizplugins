@@ -4,7 +4,7 @@
  * Plugin Name:       BizUpKeep Payments
  * Plugin URI:        https://bizupkeep.co.za
  * Description:       Payment gateway integration (Yoco, SnapScan) for the BizUpKeep platform - lets a client choose a service and generate/pay a real Invoice for it, replacing WooCommerce checkout.
- * Version:           1.0.0
+ * Version:           1.0.1
  * Requires at least: 6.7
  * Requires PHP:      8.2
  * Requires Plugins:  bizhub, bizupkeep-core, bizupkeep-workflow, bizupkeep-bookkeeping
