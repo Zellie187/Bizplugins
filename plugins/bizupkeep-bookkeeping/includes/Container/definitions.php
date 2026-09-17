@@ -17,6 +17,7 @@ use BizHub\Bookkeeping\Contracts\CompanySettingsRepositoryInterface;
 use BizHub\Bookkeeping\Contracts\CustomerRepositoryInterface;
 use BizHub\Bookkeeping\Contracts\FinancialStatementsServiceInterface;
 use BizHub\Bookkeeping\Contracts\ImportMappingRepositoryInterface;
+use BizHub\Bookkeeping\Contracts\InternalCompanyProviderInterface;
 use BizHub\Bookkeeping\Contracts\InvoiceRepositoryInterface;
 use BizHub\Bookkeeping\Contracts\InvoiceServiceInterface;
 use BizHub\Bookkeeping\Contracts\JournalRepositoryInterface;
@@ -38,6 +39,7 @@ use BizHub\Bookkeeping\Recurring\RecurringOccurrenceRepository;
 use BizHub\Bookkeeping\Recurring\RecurringTemplateRepository;
 use BizHub\Bookkeeping\Recurring\RecurringTransactionService;
 use BizHub\Bookkeeping\Reporting\FinancialStatementsService;
+use BizHub\Bookkeeping\Support\InternalCompanyProvider;
 
 /*
  * Contributed into BizHub's shared container via the
@@ -76,4 +78,6 @@ return [
     CustomerRepositoryInterface::class => DI\autowire(CustomerRepository::class),
     InvoiceRepositoryInterface::class => DI\autowire(InvoiceRepository::class),
     InvoiceServiceInterface::class => DI\autowire(InvoiceService::class),
+
+    InternalCompanyProviderInterface::class => DI\autowire(InternalCompanyProvider::class),
 ];
