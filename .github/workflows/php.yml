@@ -26,6 +26,7 @@ jobs:
           - bizupkeep-core
           - bizupkeep-workflow
           - bizupkeep-bookkeeping
+          - bizupkeep-payments
 
     defaults:
       run:
