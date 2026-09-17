@@ -2,6 +2,12 @@
 
 All notable changes to BizUpKeep Workflow are documented in this file.
 
+## [1.14.3] - 2026-09-17
+
+### Changed
+
+- Text-only update to `config/notifications.php`'s `approve` template for both Company Registration and Company Amendment, explicitly directing the client to log in to their Client Portal and download their documents - part of astra-child 1.35.0's checkout rework, which also introduced a real multi-item WooCommerce cart (no code/logic change in this plugin itself).
+
 ## [1.14.2] - 2026-07-25
 
 ### Changed

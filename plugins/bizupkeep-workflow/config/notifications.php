@@ -39,8 +39,9 @@ return [
         ],
 
         'approve' => [
-            'subject' => 'Company registration completed',
-            'body' => 'Your company registration ({workflow_uuid}) has been completed.',
+            'subject' => 'Company registration completed - documents ready',
+            'body' => 'Your company registration ({workflow_uuid}) has been completed. '
+                . 'Log in to your Client Portal to download your registration documents.',
         ],
 
         'cancel' => [
@@ -87,8 +88,9 @@ return [
         ],
 
         'approve' => [
-            'subject' => 'Company amendment completed',
-            'body' => 'Your company amendment ({workflow_uuid}) has been completed.',
+            'subject' => 'Company amendment completed - documents ready',
+            'body' => 'Your company amendment ({workflow_uuid}) has been completed. '
+                . 'Log in to your Client Portal to download your amendment documents.',
         ],
 
         'cancel' => [
