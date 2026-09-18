@@ -4,7 +4,7 @@
  * Plugin Name:       BizUpKeep Core
  * Plugin URI:        https://github.com/Zellie187/BizUpKeepWebsite
  * Description:       Core functionality for the BizUpKeep platform. Provides the application framework, integrations, and shared services for the BizUpKeep ecosystem, built on top of the BizHub Framework.
- * Version:           1.3.0
+ * Version:           1.3.1
  * Requires at least: 6.6
  * Requires PHP:      8.2
  * Requires Plugins:  bizhub
@@ -24,7 +24,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('BIZUPKEEP_CORE_VERSION', '1.3.0');
+define('BIZUPKEEP_CORE_VERSION', '1.3.1');
 define('BIZUPKEEP_CORE_FILE', __FILE__);
 define('BIZUPKEEP_CORE_PATH', plugin_dir_path(__FILE__));
 define('BIZUPKEEP_CORE_URL', plugin_dir_url(__FILE__));
@@ -36,6 +36,7 @@ use BizHub\Framework\Registries\ProviderRegistry;
 use BizUpKeep\Core\Admin\Providers\ServiceCatalogAdminServiceProvider;
 use BizUpKeep\Core\Bootstrap\DependencyGuard;
 use BizUpKeep\Core\Bootstrap\Plugin;
+use BizUpKeep\Core\Contracts\ServiceRepositoryInterface;
 use BizUpKeep\Core\Install\Activator;
 use BizUpKeep\Core\Install\Deactivator;
 use BizUpKeep\Core\Providers\CoreServiceProvider;
@@ -83,6 +84,12 @@ add_action(
     static function (ProviderRegistry $providerRegistry, Container $container): void {
         $providerRegistry->add(CoreServiceProvider::class);
         $providerRegistry->add(ServiceCatalogAdminServiceProvider::class);
+
+        // Deliberately not done in Activator::activate() - see that
+        // class's docblock. This is the earliest point BizHub's
+        // autoloader (for WordPressDatabase, behind
+        // ServiceRepositoryInterface) is guaranteed registered.
+        Activator::seedServiceCatalogOnce($container->get(ServiceRepositoryInterface::class));
     },
     10,
     2

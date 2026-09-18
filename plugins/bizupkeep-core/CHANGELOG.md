@@ -5,6 +5,11 @@ The format follows **Keep a Changelog** and the project adheres to **Semantic Ve
 
 ---
 
+## [1.3.1] - 2026-09-18
+
+### Fixed
+- **Activation fatal on real installs**: `Activator::activate()` used to construct `BizHub\Framework\Database\Drivers\WordPressDatabase` directly to seed the Service catalog - a class belonging to a *different plugin's* own Composer autoloader, which this plugin's autoloader has no knowledge of. It only happened to resolve when BizHub's autoloader was coincidentally already registered in the same PHP process (true for manual one-at-a-time activation via wp-admin, false for Plesk WP Toolkit's bulk install/activate flow, which threw `PHP Fatal error: Class "BizHub\Framework\Database\Drivers\WordPressDatabase" not found` on a real production install). Service Catalog seeding is now done from the `bizhub/register_providers` callback in `bizupkeep-core.php` instead (`Activator::seedServiceCatalogOnce()`), the earliest point BizHub's autoloader and shared container are both guaranteed ready - schema migration itself stays in `Activator::activate()` unchanged, since `Migrator`/`Schema` are this plugin's own classes.
+
 ## [1.1.0] - 2026-07-19
 
 ### Changed
