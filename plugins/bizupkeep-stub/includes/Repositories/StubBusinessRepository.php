@@ -34,7 +34,11 @@ final class StubBusinessRepository implements StubBusinessRepositoryInterface
     public function save(StubBusiness $business): StubBusiness
     {
         if ($this->database->exists(self::TABLE, ['company_uuid' => $business->companyUuid])) {
-            $this->database->update(self::TABLE, $this->dehydrate($business), ['company_uuid' => $business->companyUuid]);
+            $this->database->update(
+                self::TABLE,
+                $this->dehydrate($business),
+                ['company_uuid' => $business->companyUuid]
+            );
         } else {
             $this->database->insert(self::TABLE, $this->dehydrate($business));
         }

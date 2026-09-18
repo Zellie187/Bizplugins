@@ -151,7 +151,11 @@ final class StubApiClient implements StubApiClientInterface
     private function decode($response, string $path): array
     {
         if (is_wp_error($response)) {
-            throw new StubApiException(sprintf('Stub API request to %s failed: %s', $path, $response->get_error_message()));
+            throw new StubApiException(sprintf(
+                'Stub API request to %s failed: %s',
+                $path,
+                $response->get_error_message()
+            ));
         }
 
         $status = (int) wp_remote_retrieve_response_code($response);

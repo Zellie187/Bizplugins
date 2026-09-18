@@ -94,7 +94,10 @@ final class StubSettingsPage
 
         return $this->api->verifyApiKey()
             ? ['success', __('API key verified - Stub accepted it.', 'bizupkeep-stub')]
-            : ['error', __('Stub rejected this API key/App ID combination (or the environment is wrong).', 'bizupkeep-stub')];
+            : ['error', __(
+                'Stub rejected this API key/App ID combination (or the environment is wrong).',
+                'bizupkeep-stub'
+            )];
     }
 
     private function renderForm(): void

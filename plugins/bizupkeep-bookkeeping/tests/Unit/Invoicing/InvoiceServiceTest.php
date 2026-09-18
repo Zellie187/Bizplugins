@@ -229,9 +229,15 @@ final class InvoiceServiceTest extends TestCase
         self::assertSame(InvoiceStatus::Paid, $paid->status);
         self::assertNotNull($paid->paymentJournalEntryUuid);
 
+        // recordPayment() posts its journal entry dated "now" (a
+        // payment is recorded when it happens, not backdated) - the
+        // trial balance range must extend at least that far, not a
+        // fixed historical cutoff, or the payment's offsetting entry
+        // silently falls outside the query once the real calendar
+        // date passes that cutoff.
         $report = $this->statements->trialBalance(
             self::COMPANY,
-            DateRange::sinceInception(new DateTimeImmutable('2026-08-31'))
+            DateRange::sinceInception(new DateTimeImmutable())
         );
         self::assertTrue($report->isBalanced());
 
@@ -321,9 +327,12 @@ final class InvoiceServiceTest extends TestCase
         $sent = $this->invoiceService->sendInvoice(self::COMPANY, $invoice->uuid, actorId: 1);
         $this->invoiceService->recordPayment(self::COMPANY, $sent->uuid, PaymentMethod::Bank, actorId: 1);
 
+        // Same reasoning as testRecordPaymentClearsAccountsReceivable()
+        // above: recordPayment() posts dated "now", so the range must
+        // track "now" too, not a fixed historical cutoff.
         $report = $this->statements->trialBalance(
             self::COMPANY,
-            DateRange::sinceInception(new DateTimeImmutable('2026-08-31'))
+            DateRange::sinceInception(new DateTimeImmutable())
         );
 
         self::assertTrue($report->isBalanced());

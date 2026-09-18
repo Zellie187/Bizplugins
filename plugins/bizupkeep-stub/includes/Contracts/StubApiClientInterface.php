@@ -50,6 +50,7 @@ interface StubApiClientInterface
      *
      * @param array<int,array<string,mixed>> $income
      * @param array<int,array<string,mixed>> $expenses
+     * @return array<string,mixed>
      */
     public function pushMany(string $uid, array $income, array $expenses): array;
 
@@ -68,16 +69,22 @@ interface StubApiClientInterface
     public function realtimeInsights(string $token, string $uid): array;
 
     /**
-     * GET /api/realtime/expenses - synchronous read, no webhook.
+     * GET /api/realtime/expenses - synchronous read, no webhook. The
+     * decoded JSON response body, shape not yet confirmed against a
+     * real Stub account (the live Swagger spec that documents this
+     * endpoint family doesn't define a response schema) - callers
+     * should verify the actual keys/nesting against a sandbox response
+     * before relying on any specific field.
      *
-     * @return array<int,array<string,mixed>>
+     * @return array<string,mixed>
      */
     public function realtimeExpenses(string $token, string $uid): array;
 
     /**
-     * GET /api/realtime/income - synchronous read, no webhook.
+     * GET /api/realtime/income - synchronous read, no webhook. Same
+     * unconfirmed-shape caveat as realtimeExpenses() above.
      *
-     * @return array<int,array<string,mixed>>
+     * @return array<string,mixed>
      */
     public function realtimeIncome(string $token, string $uid): array;
 }

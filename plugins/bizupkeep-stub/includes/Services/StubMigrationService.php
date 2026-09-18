@@ -61,7 +61,10 @@ final class StubMigrationService implements StubMigrationServiceInterface
             $client = $this->clients->find($company->getClientId());
 
             if ($client === null) {
-                throw new StubException(sprintf('Company %s has no owning client - cannot provision a Stub business.', $companyUuid));
+                throw new StubException(sprintf(
+                    'Company %s has no owning client - cannot provision a Stub business.',
+                    $companyUuid
+                ));
             }
 
             $this->provisioner->findOrCreate($client, $company);
@@ -80,7 +83,10 @@ final class StubMigrationService implements StubMigrationServiceInterface
             $accountTypes[$account->uuid] = $account->type;
         }
 
-        $entries = $this->journal->findEntriesForCompany($companyUuid, DateRange::sinceInception(new DateTimeImmutable()));
+        $entries = $this->journal->findEntriesForCompany(
+            $companyUuid,
+            DateRange::sinceInception(new DateTimeImmutable())
+        );
 
         $income = [];
         $expenses = [];

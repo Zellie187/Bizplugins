@@ -39,9 +39,9 @@ final class StubDashboardPage
 {
     public const SLUG = 'bizupkeep-stub-dashboard';
 
-    private const LOOKUP_NONCE_ACTION = 'bizupkeep_stub_lookup';
-
-    private const LOOKUP_NONCE_FIELD = 'bizupkeep_stub_lookup_nonce';
+    // No nonce constants for the lookup form itself: it's a plain GET
+    // (?company_uuid=...), read-only, no state change - nothing to
+    // protect with a nonce.
 
     private const MIGRATE_NONCE_ACTION = 'bizupkeep_stub_migrate';
 
@@ -107,7 +107,9 @@ final class StubDashboardPage
         try {
             $company = $this->companies->getCompany($companyUuid);
         } catch (CompanyNotFoundException $e) {
-            echo '<div class="notice notice-error"><p>' . esc_html__('No company with that UUID.', 'bizupkeep-stub') . '</p></div>';
+            echo '<div class="notice notice-error"><p>'
+                . esc_html__('No company with that UUID.', 'bizupkeep-stub')
+                . '</p></div>';
 
             return;
         }
@@ -164,8 +166,10 @@ final class StubDashboardPage
             echo '<p><em>' . esc_html__('Historical data already migrated.', 'bizupkeep-stub') . '</em></p>';
         }
 
-        echo '<h3>' . esc_html__('Summary', 'bizupkeep-stub') . '</h3><pre>' . esc_html((string) wp_json_encode($summary, JSON_PRETTY_PRINT)) . '</pre>';
-        echo '<h3>' . esc_html__('Insights', 'bizupkeep-stub') . '</h3><pre>' . esc_html((string) wp_json_encode($insights, JSON_PRETTY_PRINT)) . '</pre>';
+        echo '<h3>' . esc_html__('Summary', 'bizupkeep-stub') . '</h3><pre>'
+            . esc_html((string) wp_json_encode($summary, JSON_PRETTY_PRINT)) . '</pre>';
+        echo '<h3>' . esc_html__('Insights', 'bizupkeep-stub') . '</h3><pre>'
+            . esc_html((string) wp_json_encode($insights, JSON_PRETTY_PRINT)) . '</pre>';
     }
 
     /**
@@ -217,7 +221,11 @@ final class StubDashboardPage
             echo '<td><code>' . esc_html($business->companyUuid) . '</code></td>';
             echo '<td><code>' . esc_html($business->stubBusinessUid) . '</code></td>';
             echo '<td>' . esc_html($business->createdAt->format('Y-m-d H:i')) . '</td>';
-            echo '<td>' . ($business->isMigrated() ? esc_html($business->migratedAt->format('Y-m-d H:i')) : esc_html__('Not yet', 'bizupkeep-stub')) . '</td>';
+            echo '<td>' . esc_html(
+                $business->isMigrated()
+                    ? $business->migratedAt->format('Y-m-d H:i')
+                    : __('Not yet', 'bizupkeep-stub')
+            ) . '</td>';
             echo '<td><a href="' . esc_url($viewUrl) . '">' . esc_html__('View', 'bizupkeep-stub') . '</a></td>';
             echo '</tr>';
         }
