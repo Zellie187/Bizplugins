@@ -28,6 +28,7 @@ final readonly class CompanyData
      * @param CompanyStatus          $status
      * @param AddressData            $registeredAddress
      * @param DirectorData[]         $directors
+     * @param ShareholderData[]      $shareholders
      * @param DateTimeImmutable|null $incorporationDate
      * @param DateTimeImmutable|null $createdAt
      * @param DateTimeImmutable|null $updatedAt
@@ -41,6 +42,7 @@ final readonly class CompanyData
         public CompanyStatus $status,
         public AddressData $registeredAddress,
         public array $directors = [],
+        public array $shareholders = [],
         public ?DateTimeImmutable $incorporationDate = null,
         public ?DateTimeImmutable $createdAt = null,
         public ?DateTimeImmutable $updatedAt = null,
@@ -65,6 +67,10 @@ final readonly class CompanyData
             'directors' => array_map(
                 static fn (DirectorData $director): array => $director->toArray(),
                 $this->directors
+            ),
+            'shareholders' => array_map(
+                static fn (ShareholderData $shareholder): array => $shareholder->toArray(),
+                $this->shareholders
             ),
             'incorporation_date' => $this->incorporationDate?->format('Y-m-d'),
             'created_at' => $this->createdAt?->format(DATE_ATOM),

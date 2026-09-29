@@ -22,6 +22,11 @@ final class Company
     private array $directors = [];
 
     /**
+     * @var Shareholder[]
+     */
+    private array $shareholders = [];
+
+    /**
      * Company constructor.
      *
      * @param string                 $uuid
@@ -248,6 +253,46 @@ final class Company
     public function getDirectors(): array
     {
         return $this->directors;
+    }
+
+    /**
+     * Add shareholder.
+     */
+    public function addShareholder(Shareholder $shareholder): void
+    {
+        foreach ($this->shareholders as $existingShareholder) {
+            if ($existingShareholder->getUuid() === $shareholder->getUuid()) {
+                return;
+            }
+        }
+
+        $this->shareholders[] = $shareholder;
+        $this->touch();
+    }
+
+    /**
+     * Remove shareholder by UUID.
+     */
+    public function removeShareholder(string $uuid): void
+    {
+        $this->shareholders = array_values(
+            array_filter(
+                $this->shareholders,
+                static fn (Shareholder $shareholder): bool => $shareholder->getUuid() !== $uuid
+            )
+        );
+
+        $this->touch();
+    }
+
+    /**
+     * Get shareholders.
+     *
+     * @return Shareholder[]
+     */
+    public function getShareholders(): array
+    {
+        return $this->shareholders;
     }
 
     /**

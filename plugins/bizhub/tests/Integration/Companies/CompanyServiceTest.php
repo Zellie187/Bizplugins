@@ -12,6 +12,7 @@ use BizHub\Companies\Exceptions\CompanyNotFoundException;
 use BizHub\Companies\Exceptions\InvalidCompanyException;
 use BizHub\Companies\Repositories\CompanyRepository;
 use BizHub\Companies\Repositories\DirectorRepository;
+use BizHub\Companies\Repositories\ShareholderRepository;
 use BizHub\Companies\Services\CompanyLookupService;
 use BizHub\Companies\Services\CompanyService;
 use BizHub\Companies\Services\DirectorService;
@@ -27,12 +28,14 @@ final class CompanyServiceTest extends TestCase
     private CompanyLookupService $lookupService;
     private CompanyRepository $companyRepository;
     private DirectorRepository $directorRepository;
+    private ShareholderRepository $shareholderRepository;
 
     protected function setUp(): void
     {
         $db = new InMemoryDatabase();
         $this->directorRepository = new DirectorRepository($db);
-        $this->companyRepository = new CompanyRepository($db, $this->directorRepository);
+        $this->shareholderRepository = new ShareholderRepository($db);
+        $this->companyRepository = new CompanyRepository($db, $this->directorRepository, $this->shareholderRepository);
         $this->companyService = new CompanyService($this->companyRepository);
         $this->directorService = new DirectorService($this->directorRepository, $this->companyRepository);
         $this->lookupService = new CompanyLookupService($this->companyRepository);

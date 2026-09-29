@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.4.0] - Shareholders are now a real, wired feature
+
+### Added
+
+- `Companies\Contracts\ShareholderRepositoryInterface`, `Companies\Repositories\ShareholderRepository`, and `Companies\Services\ShareholderService` - the `Shareholder` entity and `ShareholderData` DTO already existed but were completely unwired (no repository, no service, nothing else in the module referenced them). `astra-child`'s Apply form asked for director documents but never asked about shareholders, despite its own FAQ copy promising documents were needed for "each director or shareholder."
+- `bizhub_shareholders` table in `Framework\Install\Schema` (`uuid`, `company_uuid`, `full_name`, `id_number`, `passport_number`, `shares_percentage`), applied via the existing `Migrator`/`dbDelta` mechanism - no new activation step needed.
+- `Company::addShareholder()`/`removeShareholder()`/`getShareholders()`, mirroring the existing `Director` methods. Unlike `Director` (constructible with a null `companyUuid`, assigned later via `assignToCompany()`), `Shareholder` requires its `companyUuid` at construction, so there's no equivalent assignment step - `ShareholderService::addShareholderToCompany()` and `CompanyService::createCompany()` both construct it with the real UUID directly.
+- `CompanyData` gained a `shareholders` param (`ShareholderData[]`, default `[]`), inserted as the 9th constructor parameter (before `incorporationDate`) - checked every existing call site first; none pass a 9th positional argument (the one call needing `incorporationDate` already uses a named argument), so this is not a breaking change.
+- `CompanyRepository` now takes a third constructor dependency (`ShareholderRepositoryInterface`) and persists/hydrates/deletes shareholders alongside directors in `save()`/`hydrate()`/`delete()` - the exact same pattern already used for directors.
+- New `Companies\Exceptions\ShareholderNotFoundException`, and a `ShareholderTest` unit test suite (the entity had zero test coverage despite existing before this change).
+
+### Fixed
+
+- Two integration tests (`CompanyServiceTest`, `DashboardBuilderTest`) manually constructed `CompanyRepository` with the old 2-argument signature - updated both to also construct and pass a `ShareholderRepository`.
+- `SchemaTest`'s hardcoded expected-table list didn't include the new `bizhub_shareholders` table - updated.
+
+### Verified
+
+- Fresh `composer install` (removed `vendor/`/`composer.lock` first), then PHPUnit (115 tests, including the new `ShareholderTest` and both fixed integration tests), PHPStan level 6, and PHPCS all pass cleanly - not just diagnosed from a prior run.
+
 ## [0.3.0] - Signed Resolution and Minutes document categories
 
 ### Added

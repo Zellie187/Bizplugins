@@ -77,6 +77,19 @@ final class Schema
                 KEY company_uuid (company_uuid)
             ) {$charsetCollate};",
 
+            'bizhub_shareholders' => "CREATE TABLE {$p}bizhub_shareholders (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                uuid CHAR(36) NOT NULL,
+                company_uuid CHAR(36) NOT NULL,
+                full_name VARCHAR(200) NOT NULL,
+                id_number VARCHAR(20) NULL,
+                passport_number VARCHAR(20) NULL,
+                shares_percentage DECIMAL(5,2) NOT NULL,
+                PRIMARY KEY  (id),
+                UNIQUE KEY uuid (uuid),
+                KEY company_uuid (company_uuid)
+            ) {$charsetCollate};",
+
             'bizhub_clients' => "CREATE TABLE {$p}bizhub_clients (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
                 uuid CHAR(36) NOT NULL,

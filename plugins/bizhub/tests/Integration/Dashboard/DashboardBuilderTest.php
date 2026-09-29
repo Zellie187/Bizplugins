@@ -20,6 +20,7 @@ use BizHub\Companies\DTO\CompanyData;
 use BizHub\Companies\Entities\CompanyStatus;
 use BizHub\Companies\Repositories\CompanyRepository;
 use BizHub\Companies\Repositories\DirectorRepository;
+use BizHub\Companies\Repositories\ShareholderRepository;
 use BizHub\Companies\Services\CompanyLookupService;
 use BizHub\Companies\Services\CompanyService;
 use BizHub\Dashboard\DashboardBuilder;
@@ -56,7 +57,8 @@ final class DashboardBuilderTest extends TestCase
         $db = new InMemoryDatabase();
 
         $directorRepository = new DirectorRepository($db);
-        $companyRepository = new CompanyRepository($db, $directorRepository);
+        $shareholderRepository = new ShareholderRepository($db);
+        $companyRepository = new CompanyRepository($db, $directorRepository, $shareholderRepository);
         $companyLookup = new CompanyLookupService($companyRepository);
         $companyService = new CompanyService($companyRepository);
 

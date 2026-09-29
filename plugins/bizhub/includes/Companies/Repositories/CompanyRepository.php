@@ -6,6 +6,7 @@ namespace BizHub\Companies\Repositories;
 
 use BizHub\Companies\Contracts\CompanyRepositoryInterface;
 use BizHub\Companies\Contracts\DirectorRepositoryInterface;
+use BizHub\Companies\Contracts\ShareholderRepositoryInterface;
 use BizHub\Companies\DTO\CompanySummary;
 use BizHub\Companies\Entities\Company;
 use BizHub\Companies\Entities\CompanyStatus;
@@ -24,7 +25,8 @@ final class CompanyRepository implements CompanyRepositoryInterface
 
     public function __construct(
         private readonly DatabaseInterface $database,
-        private readonly DirectorRepositoryInterface $directors
+        private readonly DirectorRepositoryInterface $directors,
+        private readonly ShareholderRepositoryInterface $shareholders
     ) {
     }
 
@@ -123,6 +125,10 @@ final class CompanyRepository implements CompanyRepositoryInterface
             $this->directors->save($director);
         }
 
+        foreach ($company->getShareholders() as $shareholder) {
+            $this->shareholders->save($shareholder);
+        }
+
         return $company;
     }
 
@@ -135,12 +141,16 @@ final class CompanyRepository implements CompanyRepositoryInterface
             $this->directors->delete($director);
         }
 
+        foreach ($company->getShareholders() as $shareholder) {
+            $this->shareholders->delete($shareholder);
+        }
+
         $this->database->delete(self::TABLE, ['uuid' => $company->getUuid()]);
     }
 
     /**
      * Hydrate a database row into a Company aggregate, including its
-     * registered address and associated directors.
+     * registered address, directors, and shareholders.
      *
      * @param array<string,mixed> $row
      */
@@ -171,6 +181,10 @@ final class CompanyRepository implements CompanyRepositoryInterface
 
         foreach ($this->directors->findByCompanyUuid($row['uuid']) as $director) {
             $company->addDirector($director);
+        }
+
+        foreach ($this->shareholders->findByCompanyUuid($row['uuid']) as $shareholder) {
+            $company->addShareholder($shareholder);
         }
 
         return $company;

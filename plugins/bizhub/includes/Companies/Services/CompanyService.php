@@ -8,9 +8,11 @@ use BizHub\Companies\Contracts\CompanyRepositoryInterface;
 use BizHub\Companies\Contracts\CompanyServiceInterface;
 use BizHub\Companies\DTO\CompanyData;
 use BizHub\Companies\DTO\DirectorData;
+use BizHub\Companies\DTO\ShareholderData;
 use BizHub\Companies\Entities\Company;
 use BizHub\Companies\Entities\Director;
 use BizHub\Companies\Entities\RegisteredAddress;
+use BizHub\Companies\Entities\Shareholder;
 use BizHub\Companies\Exceptions\CompanyNotFoundException;
 use BizHub\Companies\Exceptions\InvalidCompanyException;
 use DateTimeImmutable;
@@ -65,6 +67,19 @@ final class CompanyService implements CompanyServiceInterface
                     phone: $directorData->phone,
                     email: $directorData->email,
                     address: $this->addressFromDirectorData($directorData)
+                )
+            );
+        }
+
+        foreach ($companyData->shareholders as $shareholderData) {
+            $company->addShareholder(
+                new Shareholder(
+                    $shareholderData->uuid,
+                    $company->getUuid(),
+                    $shareholderData->fullName,
+                    $shareholderData->idNumber,
+                    $shareholderData->passportNumber,
+                    $shareholderData->sharesPercentage
                 )
             );
         }

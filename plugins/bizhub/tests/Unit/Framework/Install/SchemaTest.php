@@ -13,6 +13,7 @@ final class SchemaTest extends TestCase
     private const EXPECTED_TABLES = [
         'bizhub_companies',
         'bizhub_directors',
+        'bizhub_shareholders',
         'bizhub_clients',
         'bizhub_client_notifications',
         'bizhub_applications',

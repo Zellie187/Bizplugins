@@ -5,8 +5,10 @@ declare(strict_types=1);
 use BizHub\Companies\Contracts\CompanyRepositoryInterface;
 use BizHub\Companies\Contracts\CompanyServiceInterface;
 use BizHub\Companies\Contracts\DirectorRepositoryInterface;
+use BizHub\Companies\Contracts\ShareholderRepositoryInterface;
 use BizHub\Companies\Repositories\CompanyRepository;
 use BizHub\Companies\Repositories\DirectorRepository;
+use BizHub\Companies\Repositories\ShareholderRepository;
 use BizHub\Companies\Services\CompanyService;
 
 return [
@@ -14,6 +16,8 @@ return [
     CompanyRepositoryInterface::class => DI\autowire(CompanyRepository::class),
 
     DirectorRepositoryInterface::class => DI\autowire(DirectorRepository::class),
+
+    ShareholderRepositoryInterface::class => DI\autowire(ShareholderRepository::class),
 
     CompanyServiceInterface::class => DI\autowire(CompanyService::class),
 
