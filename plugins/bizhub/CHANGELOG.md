@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.4.1] - Create the shareholders table on in-place upgrades
+
+### Fixed
+
+- 0.4.0 added the `bizhub_shareholders` table to `Schema` but did not bump `Migrator::CURRENT_VERSION` (its own docblock says it must be bumped whenever a table definition changes). `InstallServiceProvider` decides whether to migrate by comparing that constant to the stored `bizhub_db_version`, so a plain in-place upgrade from 0.3.x saw "already up to date" and never created the table - every registration submission would then have failed saving its shareholders, and only a manual deactivate/reactivate would have created it. `CURRENT_VERSION` is now `1.2.0`, so the next normal boot after upgrading runs `dbDelta` and creates the table.
+
 ## [0.4.0] - Shareholders are now a real, wired feature
 
 ### Added
