@@ -24,6 +24,7 @@ use BizHub\Payments\Exceptions\ValidationException;
 use BizUpKeep\Core\Contracts\ServiceRepositoryInterface;
 use BizUpKeep\Core\Entities\Service;
 use BizUpKeep\Core\Enums\ServicePricingMode;
+use BizUpKeep\Core\Services\ServiceSyncService;
 use BizHub\Workflow\Contracts\WorkflowRepositoryInterface;
 use BizHub\Workflow\Entities\WorkflowInstance;
 use BizHub\Workflow\Enums\WorkflowStatus;
@@ -39,6 +40,7 @@ final class PaymentAttemptService implements PaymentAttemptServiceInterface
         private readonly CompanyServiceInterface $companies,
         private readonly ClientServiceInterface $clients,
         private readonly ServiceRepositoryInterface $catalog,
+        private readonly ServiceSyncService $prices,
         private readonly ServiceKeyResolver $serviceKeyResolver,
         private readonly PaymentAttemptRepositoryInterface $attempts,
         private readonly PaymentGatewayRegistryInterface $gateways
@@ -124,14 +126,22 @@ final class PaymentAttemptService implements PaymentAttemptServiceInterface
     private function resolveAmountMinor(Service $service, ?WorkflowInstance $instance): int
     {
         if ($service->pricingMode === ServicePricingMode::Fixed) {
-            if ($service->priceMinor === null) {
+            // The catalog row deliberately carries no price (see
+            // Service's docblock): the linked WooCommerce product is the
+            // single source of truth for what a client is charged, read
+            // live here. A missing product, or a zero price (e.g. the
+            // R0 placeholder Bookkeeping Monthly is created with), must
+            // never reach a payment gateway.
+            $priceMinor = $this->prices->currentPriceMinor($service);
+
+            if ($priceMinor === null || $priceMinor <= 0) {
                 throw new ValidationException(sprintf(
                     '"%s" does not have a price configured yet - contact staff.',
                     $service->name
                 ));
             }
 
-            return $service->priceMinor;
+            return $priceMinor;
         }
 
         $quoteAmount = $instance?->getMetadata()['quote_amount'] ?? null;

@@ -123,10 +123,13 @@ final class PaymentConfirmationService implements PaymentConfirmationServiceInte
         );
 
         $sent = $this->invoicing->sendInvoice($internalCompanyUuid, $invoice->uuid, $attempt->buyerWpUserId);
+        // PaymentMethod only chooses the offsetting ledger account: an
+        // online gateway payment settles into the bank account, so Bank
+        // is the correct method (there is no separate Online case).
         $this->invoicing->recordPayment(
             $internalCompanyUuid,
             $sent->uuid,
-            PaymentMethod::Online,
+            PaymentMethod::Bank,
             $attempt->buyerWpUserId
         );
 
